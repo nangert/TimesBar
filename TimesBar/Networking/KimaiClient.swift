@@ -43,6 +43,16 @@ struct KimaiClient {
         return try JSONDecoder.kimai.decode(TimesheetEntity.self, from: data)
     }
 
+    func projects() async throws -> [ProjectEntity] {
+        let (data, _) = try await session.data(for: request("/api/projects"))
+        return try JSONDecoder.kimai.decode([ProjectEntity].self, from: data)
+    }
+
+    func activities() async throws -> [ActivityEntity] {
+        let (data, _) = try await session.data(for: request("/api/activities"))
+        return try JSONDecoder.kimai.decode([ActivityEntity].self, from: data)
+    }
+
     func recent() async throws -> [TimesheetEntity] {
         let (data, _) = try await session.data(for: request("/api/timesheets/recent"))
         return try JSONDecoder.kimai.decode([TimesheetEntity].self, from: data)

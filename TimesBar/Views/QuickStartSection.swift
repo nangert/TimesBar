@@ -1,29 +1,66 @@
 import SwiftUI
 
+struct QuickStartItem: Identifiable, Equatable {
+    let id: Int
+    let projectId: Int
+    let activityId: Int
+    let description: String?
+    let title: String
+    let durationSeconds: TimeInterval
+}
+
 struct QuickStartSection: View {
-    let recent: [TimesheetEntity]
-    let onStart: (TimesheetEntity) -> Void
+    let items: [QuickStartItem]
+    let onStart: (QuickStartItem) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text("Quick start").font(.caption).foregroundStyle(.secondary)
-            if recent.isEmpty {
-                Text("No recent entries").font(.caption).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 6) {
+            SectionHeader(text: "Quick start")
+            if items.isEmpty {
+                Text("No recent entries")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 2)
             } else {
-                ForEach(recent) { entry in
-                    Button {
-                        onStart(entry)
-                    } label: {
-                        HStack {
-                            Image(systemName: "play.fill").font(.caption)
-                            Text(entry.description ?? "Project #\(entry.project) / Activity #\(entry.activity)")
-                                .lineLimit(1)
-                            Spacer()
-                        }
+                VStack(spacing: 2) {
+                    ForEach(items) { item in
+                        QuickStartRow(item: item) { onStart(item) }
                     }
-                    .buttonStyle(.plain)
                 }
             }
         }
+    }
+}
+
+private struct QuickStartRow: View {
+    let item: QuickStartItem
+    let onTap: () -> Void
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(.secondary)
+                Text(item.title)
+                    .font(.system(size: 13))
+                    .lineLimit(1)
+                Spacer(minLength: 8)
+                Text(formatHoursAndMinutes(seconds: item.durationSeconds))
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 5)
+            .padding(.horizontal, 8)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: 6)
+                    .fill(Color.primary.opacity(hover ? 0.08 : 0))
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
     }
 }

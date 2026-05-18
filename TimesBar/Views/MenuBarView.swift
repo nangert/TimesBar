@@ -5,59 +5,73 @@ struct MenuBarView: View {
     @State private var showingSettings = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             if !store.isAuthenticated {
-                Text("Sign in to Kimai")
-                    .font(.headline)
-                Text("Add an API token to start tracking.")
-                    .foregroundStyle(.secondary)
-                Button("Sign in") { showingSettings = true }
-                    .buttonStyle(.borderedProminent)
-            } else if let timesheet = store.active {
-                ActiveTimerSection(timesheet: timesheet,
-                                    elapsed: store.elapsedString) {
-                    Task { await store.stop() }
+                signInBlock
+            } else {
+                if let timesheet = store.active {
+                    ActiveTimerSection(
+                        projectTitle: store.projectTitle(for: timesheet.project),
+                        description: timesheet.description,
+                        elapsed: store.elapsedString,
+                        onStop: { Task { await store.stop() } }
+                    )
+                } else {
+                    SectionHeader(text: "Active")
+                    Text("No active timer")
+                        .font(.system(size: 13))
+                        .foregroundStyle(.secondary)
                 }
                 Divider()
-                TotalsSection(weekHours: store.weekHours)
-            } else {
-                Text("No active timer").foregroundStyle(.secondary)
-                Divider()
-                QuickStartSection(recent: store.recent) { entry in
+                QuickStartSection(items: quickStartItems) { item in
                     Task {
-                        await store.start(project: entry.project,
-                                          activity: entry.activity,
-                                          description: entry.description)
+                        await store.start(project: item.projectId,
+                                          activity: item.activityId,
+                                          description: item.description)
                     }
                 }
                 Divider()
                 TotalsSection(weekHours: store.weekHours)
             }
             Divider()
-            FooterRow(showSettings: { showingSettings = true })
+            FooterRow(
+                onSettings: { showingSettings = true },
+                onSignOut: { store.signOut() }
+            )
         }
-        .padding(12)
+        .padding(14)
         .sheet(isPresented: $showingSettings) {
             TokenSetupSheet().environmentObject(store)
         }
     }
-}
 
-struct FooterRow: View {
-    let showSettings: () -> Void
-    var body: some View {
-        HStack {
-            Button("Settings", action: showSettings)
-            Spacer()
-            Button("Open Kimai") {
-                if let url = URL(string: "https://times.lipsum.services") {
-                    NSWorkspace.shared.open(url)
-                }
+    private var quickStartItems: [QuickStartItem] {
+        store.recent
+            .filter { $0.end != nil }   // only show stopped past entries
+            .prefix(3)
+            .map { entry in
+                QuickStartItem(
+                    id: entry.id,
+                    projectId: entry.project,
+                    activityId: entry.activity,
+                    description: entry.description,
+                    title: store.projectTitle(for: entry.project),
+                    durationSeconds: (entry.end ?? Date()).timeIntervalSince(entry.begin)
+                )
             }
-            Button("Quit") { NSApp.terminate(nil) }
-                .keyboardShortcut("q")
+    }
+
+    @ViewBuilder private var signInBlock: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Sign in to Kimai")
+                .font(.system(size: 14, weight: .semibold))
+            Text("Add an API token to start tracking.")
+                .font(.system(size: 12))
+                .foregroundStyle(.secondary)
+            Button("Sign in") { showingSettings = true }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.small)
+                .padding(.top, 4)
         }
-        .font(.caption)
     }
 }
-

@@ -8,8 +8,18 @@ final class TimerStore: ObservableObject {
     @Published var elapsedString: String = "--:--:--"
     @Published var isAuthenticated: Bool = false
     @Published var recent: [TimesheetEntity] = []
+    @Published var projectTitles: [Int: String] = [:]
+    @Published var activityTitles: [Int: String] = [:]
 
     var isRunning: Bool { active != nil }
+
+    func projectTitle(for id: Int) -> String {
+        projectTitles[id] ?? "Project #\(id)"
+    }
+
+    func activityTitle(for id: Int) -> String {
+        activityTitles[id] ?? "Activity #\(id)"
+    }
 
     // MARK: - Pure helpers (unit-tested)
 
@@ -44,7 +54,10 @@ final class TimerStore: ObservableObject {
         if let token = TokenStore().read() {
             client = KimaiClient(token: token)
             isAuthenticated = true
-            Task { await refresh() }
+            Task {
+                await refreshDirectory()
+                await refresh()
+            }
             startTimers()
         } else {
             isAuthenticated = false
@@ -61,9 +74,22 @@ final class TimerStore: ObservableObject {
         TokenStore().save(token)
         client = candidate
         isAuthenticated = true
+        await refreshDirectory()
         await refresh()
         startTimers()
         return true
+    }
+
+    func refreshDirectory() async {
+        guard let client else { return }
+        async let projects = client.projects()
+        async let activities = client.activities()
+        if let p = try? await projects {
+            projectTitles = Dictionary(uniqueKeysWithValues: p.map { ($0.id, $0.displayTitle) })
+        }
+        if let a = try? await activities {
+            activityTitles = Dictionary(uniqueKeysWithValues: a.map { ($0.id, $0.name) })
+        }
     }
 
     func signOut() {
@@ -73,6 +99,9 @@ final class TimerStore: ObservableObject {
         weekHours = Array(repeating: 0, count: 7)
         elapsedString = "--:--:--"
         isAuthenticated = false
+        recent = []
+        projectTitles = [:]
+        activityTitles = [:]
         pollTimer?.invalidate()
         tickTimer?.invalidate()
     }

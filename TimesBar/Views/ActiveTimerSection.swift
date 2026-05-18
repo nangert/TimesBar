@@ -1,31 +1,43 @@
 import SwiftUI
 
 struct ActiveTimerSection: View {
-    let timesheet: TimesheetEntity
+    let projectTitle: String
+    let description: String?
     let elapsed: String
     let onStop: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(timesheet.description ?? "Project #\(timesheet.project)")
-                        .font(.headline)
-                        .lineLimit(1)
-                    Text("Activity #\(timesheet.activity)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
+            SectionHeader(text: "Active")
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(Color.kimaiGreen)
+                    .frame(width: 7, height: 7)
+                Text(projectTitle)
+                    .font(.system(size: 13, weight: .medium))
+                    .lineLimit(1)
+            }
+            if let description, !description.isEmpty {
+                Text("“\(description)”")
+                    .font(.system(size: 12))
+                    .italic()
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            HStack(alignment: .firstTextBaseline) {
                 Text(elapsed)
-                    .font(.system(.title3, design: .monospaced))
+                    .font(.system(size: 22, weight: .medium, design: .monospaced))
+                    .tracking(1)
+                Spacer()
+                Button(action: onStop) {
+                    Label("Stop", systemImage: "stop.fill")
+                        .font(.system(size: 12, weight: .medium))
+                        .labelStyle(.titleAndIcon)
+                }
+                .buttonStyle(.bordered)
+                .tint(.kimaiStopTint)
+                .controlSize(.small)
             }
-            Button(role: .destructive, action: onStop) {
-                Label("Stop", systemImage: "stop.fill")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.borderedProminent)
-            .controlSize(.regular)
         }
     }
 }
