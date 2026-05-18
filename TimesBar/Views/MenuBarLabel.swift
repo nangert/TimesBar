@@ -4,16 +4,17 @@ struct MenuBarLabel: View {
     @EnvironmentObject var store: TimerStore
 
     var body: some View {
-        HStack(spacing: 6) {
-            Circle()
-                .fill(store.isRunning ? Color.green : Color.secondary)
-                .frame(width: 7, height: 7)
-            if store.isRunning {
+        if store.isRunning {
+            // Running: show a filled timer icon + elapsed time
+            Label {
                 Text(store.elapsedString)
                     .font(.system(.body, design: .monospaced))
+            } icon: {
+                Image(systemName: "timer")
             }
-            Sparkline(values: store.weekHours)
-                .frame(width: 48, height: 14)
+        } else {
+            // Idle: just the icon (SwiftUI renders this as a template image in the menu bar)
+            Image(systemName: "timer")
         }
     }
 }
