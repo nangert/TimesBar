@@ -3,6 +3,7 @@ import SwiftUI
 struct MenuBarView: View {
     @EnvironmentObject var store: TimerStore
     @State private var showingSettings = false
+    @State private var showingStart = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -22,13 +23,19 @@ struct MenuBarView: View {
                         .font(.system(size: 13))
                         .foregroundStyle(.secondary)
                 }
-                Divider()
-                QuickStartSection(items: quickStartItems) { item in
-                    Task {
-                        await store.start(project: item.projectId,
-                                          activity: item.activityId,
-                                          description: item.description)
-                    }
+                if store.active == nil {
+                    Divider()
+                    QuickStartSection(
+                        items: quickStartItems,
+                        onStart: { item in
+                            Task {
+                                await store.start(project: item.projectId,
+                                                  activity: item.activityId,
+                                                  description: item.description)
+                            }
+                        },
+                        onStartNew: { showingStart = true }
+                    )
                 }
                 Divider()
                 TotalsSection(weekHours: store.weekHours)
@@ -42,6 +49,9 @@ struct MenuBarView: View {
         .padding(14)
         .sheet(isPresented: $showingSettings) {
             TokenSetupSheet().environmentObject(store)
+        }
+        .sheet(isPresented: $showingStart) {
+            StartTimerSheet().environmentObject(store)
         }
     }
 

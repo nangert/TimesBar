@@ -128,9 +128,19 @@ final class TimerStore: ObservableObject {
     }
 
     func start(project: Int, activity: Int, description: String?) async {
-        guard let client else { return }
-        _ = try? await client.start(project: project, activity: activity, description: description)
-        await refresh()
+        _ = await startCheckingResult(project: project, activity: activity, description: description)
+    }
+
+    @discardableResult
+    func startCheckingResult(project: Int, activity: Int, description: String?) async -> Bool {
+        guard let client else { return false }
+        do {
+            _ = try await client.start(project: project, activity: activity, description: description)
+            await refresh()
+            return true
+        } catch {
+            return false
+        }
     }
 
     private func refreshWeek() async {

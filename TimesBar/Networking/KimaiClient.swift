@@ -13,6 +13,18 @@ struct KimaiClient {
         self.session = session
     }
 
+    /// Kimai's API expects HTML5 "local date and time" — `yyyy-MM-dd'T'HH:mm:ss` with no
+    /// timezone offset. Kimai then applies the user's configured timezone server-side.
+    /// Sending full ISO 8601 (with `Z` or `+02:00`) is *not* guaranteed to work and yields
+    /// empty filter results on some Kimai versions.
+    private static let kimaiLocalFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = .current
+        return f
+    }()
+
     private func request(_ path: String,
                          method: String = "GET",
                          queryItems: [URLQueryItem]? = nil,
@@ -44,12 +56,14 @@ struct KimaiClient {
     }
 
     func projects() async throws -> [ProjectEntity] {
-        let (data, _) = try await session.data(for: request("/api/projects"))
+        let items = [URLQueryItem(name: "visible", value: "1")]
+        let (data, _) = try await session.data(for: request("/api/projects", queryItems: items))
         return try JSONDecoder.kimai.decode([ProjectEntity].self, from: data)
     }
 
     func activities() async throws -> [ActivityEntity] {
-        let (data, _) = try await session.data(for: request("/api/activities"))
+        let items = [URLQueryItem(name: "visible", value: "1")]
+        let (data, _) = try await session.data(for: request("/api/activities", queryItems: items))
         return try JSONDecoder.kimai.decode([ActivityEntity].self, from: data)
     }
 
@@ -59,12 +73,10 @@ struct KimaiClient {
     }
 
     func start(project: Int, activity: Int, description: String?) async throws -> TimesheetEntity {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime]
         var payload: [String: Any] = [
             "project": project,
             "activity": activity,
-            "begin": formatter.string(from: Date()),
+            "begin": Self.kimaiLocalFormatter.string(from: Date()),
         ]
         if let description, !description.isEmpty { payload["description"] = description }
         let body = try JSONSerialization.data(withJSONObject: payload)
@@ -74,11 +86,9 @@ struct KimaiClient {
     }
 
     func timesheets(begin: Date, end: Date, size: Int = 500) async throws -> [TimesheetEntity] {
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime]
         let items = [
-            URLQueryItem(name: "begin", value: formatter.string(from: begin)),
-            URLQueryItem(name: "end", value: formatter.string(from: end)),
+            URLQueryItem(name: "begin", value: Self.kimaiLocalFormatter.string(from: begin)),
+            URLQueryItem(name: "end", value: Self.kimaiLocalFormatter.string(from: end)),
             URLQueryItem(name: "size", value: String(size)),
         ]
         let (data, _) = try await session.data(

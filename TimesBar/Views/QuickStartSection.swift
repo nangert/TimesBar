@@ -12,10 +12,21 @@ struct QuickStartItem: Identifiable, Equatable {
 struct QuickStartSection: View {
     let items: [QuickStartItem]
     let onStart: (QuickStartItem) -> Void
+    let onStartNew: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            SectionHeader(text: "Quick start")
+            HStack(alignment: .firstTextBaseline) {
+                SectionHeader(text: "Quick start")
+                Spacer()
+                Button(action: onStartNew) {
+                    Label("Start new", systemImage: "plus.circle")
+                        .font(.system(size: 11, weight: .medium))
+                        .labelStyle(.titleAndIcon)
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+            }
             if items.isEmpty {
                 Text("No recent entries")
                     .font(.system(size: 12))

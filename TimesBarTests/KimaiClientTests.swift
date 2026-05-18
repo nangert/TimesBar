@@ -100,4 +100,33 @@ import Foundation
     #expect(names.contains("end"))
     #expect(names.contains("size"))
     #expect(components.queryItems?.first(where: { $0.name == "size" })?.value == "250")
+
+    // Kimai requires HTML5 local datetime — no `Z`, no `+0000`.
+    let beginValue = try #require(components.queryItems?.first(where: { $0.name == "begin" })?.value)
+    #expect(!beginValue.contains("Z"))
+    #expect(!beginValue.contains("+"))
+    #expect(beginValue.range(of: #"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$"#,
+                              options: .regularExpression) != nil)
+}
+
+@Test func startBodyUsesHTML5LocalDateTime() async throws {
+    nonisolated(unsafe) var captured: URLRequest?
+    let session = mockSession { req in
+        captured = req
+        let body = """
+        {"id":7,"project":1,"activity":2,"begin":"2026-05-19T11:00:00+0200","end":null,"description":null}
+        """
+        let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        return (response, Data(body.utf8))
+    }
+    let client = KimaiClient(token: "t", session: session)
+    _ = try await client.start(project: 1, activity: 2, description: nil)
+
+    let bodyData = try #require(captured).capturedBody()
+    let decoded = try JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
+    let begin = try #require(decoded?["begin"] as? String)
+    #expect(!begin.contains("Z"))
+    #expect(!begin.contains("+"))
+    #expect(begin.range(of: #"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$"#,
+                         options: .regularExpression) != nil)
 }
