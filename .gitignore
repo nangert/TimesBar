@@ -1,0 +1,6 @@
+.DS_Store
+TimesBar.xcodeproj/
+build/
+DerivedData/
+xcuserdata/
+*.xcuserstate

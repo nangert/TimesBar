@@ -1,0 +1,57 @@
+name: TimesBar
+options:
+  bundleIdPrefix: bar.times
+  deploymentTarget:
+    macOS: "14.0"
+  developmentLanguage: en
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "14.0"
+    ENABLE_HARDENED_RUNTIME: YES
+    CODE_SIGN_STYLE: Automatic
+    CODE_SIGN_IDENTITY: "-"
+targets:
+  TimesBar:
+    type: application
+    platform: macOS
+    sources:
+      - TimesBar
+    info:
+      path: TimesBar/Info.plist
+      properties:
+        LSUIElement: true
+        CFBundleName: TimesBar
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+    entitlements:
+      path: TimesBar/TimesBar.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.network.client: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: bar.times.TimesBar
+        GENERATE_INFOPLIST_FILE: NO
+  TimesBarTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - TimesBarTests
+    dependencies:
+      - target: TimesBar
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: bar.times.TimesBarTests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  TimesBar:
+    build:
+      targets:
+        TimesBar: all
+        TimesBarTests: [test]
+    test:
+      targets:
+        - TimesBarTests
+    run:
+      config: Debug
