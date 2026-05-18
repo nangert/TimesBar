@@ -28,3 +28,24 @@ func mockSession(handler: @escaping (URLRequest) throws -> (HTTPURLResponse, Dat
     config.protocolClasses = [MockURLProtocol.self]
     return URLSession(configuration: config)
 }
+
+extension URLRequest {
+    /// URLSession replaces `httpBody` with `httpBodyStream` during request handling, so tests
+    /// inspecting POST bodies must read the stream.
+    func capturedBody() -> Data {
+        if let data = httpBody { return data }
+        guard let stream = httpBodyStream else { return Data() }
+        stream.open()
+        defer { stream.close() }
+        var data = Data()
+        let bufferSize = 4096
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+        defer { buffer.deallocate() }
+        while stream.hasBytesAvailable {
+            let read = stream.read(buffer, maxLength: bufferSize)
+            if read <= 0 { break }
+            data.append(buffer, count: read)
+        }
+        return data
+    }
+}

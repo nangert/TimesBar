@@ -23,6 +23,14 @@ struct MenuBarView: View {
             } else {
                 Text("No active timer").foregroundStyle(.secondary)
                 Divider()
+                QuickStartSection(recent: store.recent) { entry in
+                    Task {
+                        await store.start(project: entry.project,
+                                          activity: entry.activity,
+                                          description: entry.description)
+                    }
+                }
+                Divider()
                 TotalsSection(weekHours: store.weekHours)
             }
             Divider()

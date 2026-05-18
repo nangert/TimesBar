@@ -7,6 +7,7 @@ final class TimerStore: ObservableObject {
     @Published var weekHours: [Double] = Array(repeating: 0, count: 7)
     @Published var elapsedString: String = "--:--:--"
     @Published var isAuthenticated: Bool = false
+    @Published var recent: [TimesheetEntity] = []
 
     var isRunning: Bool { active != nil }
 
@@ -86,7 +87,21 @@ final class TimerStore: ObservableObject {
         guard let client else { return }
         active = (try? await client.active())?.first
         await refreshWeek()
+        await refreshRecent()
         tickElapsed()
+    }
+
+    func refreshRecent() async {
+        guard let client else { return }
+        if let entries = try? await client.recent() {
+            recent = Array(entries.prefix(5))
+        }
+    }
+
+    func start(project: Int, activity: Int, description: String?) async {
+        guard let client else { return }
+        _ = try? await client.start(project: project, activity: activity, description: description)
+        await refresh()
     }
 
     private func refreshWeek() async {

@@ -48,6 +48,39 @@ import Foundation
     #expect(captured?.url?.path == "/api/timesheets/99/stop")
 }
 
+@Test func recentHitsCorrectPath() async throws {
+    nonisolated(unsafe) var captured: URLRequest?
+    let session = mockSession { req in
+        captured = req
+        let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        return (response, Data("[]".utf8))
+    }
+    let client = KimaiClient(token: "t", session: session)
+    _ = try await client.recent()
+    #expect(captured?.url?.path == "/api/timesheets/recent")
+}
+
+@Test func startSendsPostWithJSONBody() async throws {
+    nonisolated(unsafe) var captured: URLRequest?
+    let session = mockSession { req in
+        captured = req
+        let body = """
+        {"id":7,"project":1,"activity":2,"begin":"2026-05-18T11:00:00+0200","end":null,"description":null}
+        """
+        let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+        return (response, Data(body.utf8))
+    }
+    let client = KimaiClient(token: "t", session: session)
+    _ = try await client.start(project: 1, activity: 2, description: "hi")
+
+    #expect(captured?.httpMethod == "POST")
+    #expect(captured?.url?.path == "/api/timesheets")
+    let bodyData = try #require(captured).capturedBody()
+    let decoded = try JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
+    #expect(decoded?["project"] as? Int == 1)
+    #expect(decoded?["activity"] as? Int == 2)
+}
+
 @Test func timesheetsBuildsQueryStringWithDates() async throws {
     nonisolated(unsafe) var captured: URLRequest?
     let session = mockSession { req in

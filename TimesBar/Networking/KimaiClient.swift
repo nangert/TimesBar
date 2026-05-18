@@ -43,6 +43,26 @@ struct KimaiClient {
         return try JSONDecoder.kimai.decode(TimesheetEntity.self, from: data)
     }
 
+    func recent() async throws -> [TimesheetEntity] {
+        let (data, _) = try await session.data(for: request("/api/timesheets/recent"))
+        return try JSONDecoder.kimai.decode([TimesheetEntity].self, from: data)
+    }
+
+    func start(project: Int, activity: Int, description: String?) async throws -> TimesheetEntity {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        var payload: [String: Any] = [
+            "project": project,
+            "activity": activity,
+            "begin": formatter.string(from: Date()),
+        ]
+        if let description, !description.isEmpty { payload["description"] = description }
+        let body = try JSONSerialization.data(withJSONObject: payload)
+        let (data, _) = try await session.data(
+            for: request("/api/timesheets", method: "POST", body: body))
+        return try JSONDecoder.kimai.decode(TimesheetEntity.self, from: data)
+    }
+
     func timesheets(begin: Date, end: Date, size: Int = 500) async throws -> [TimesheetEntity] {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime]
