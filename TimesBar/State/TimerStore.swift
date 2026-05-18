@@ -32,4 +32,89 @@ final class TimerStore: ObservableObject {
         }
         return buckets
     }
+
+    // MARK: - Live state
+
+    private var pollTimer: Timer?
+    private var tickTimer: Timer?
+    private var client: KimaiClient?
+
+    func bootstrap() {
+        if let token = TokenStore().read() {
+            client = KimaiClient(token: token)
+            isAuthenticated = true
+            Task { await refresh() }
+            startTimers()
+        } else {
+            isAuthenticated = false
+        }
+    }
+
+    func authenticate(with token: String) async -> Bool {
+        let candidate = KimaiClient(token: token)
+        do {
+            try await candidate.ping()
+        } catch {
+            return false
+        }
+        TokenStore().save(token)
+        client = candidate
+        isAuthenticated = true
+        await refresh()
+        startTimers()
+        return true
+    }
+
+    func signOut() {
+        TokenStore().delete()
+        client = nil
+        active = nil
+        weekHours = Array(repeating: 0, count: 7)
+        elapsedString = "--:--:--"
+        isAuthenticated = false
+        pollTimer?.invalidate()
+        tickTimer?.invalidate()
+    }
+
+    func stop() async {
+        guard let client, let id = active?.id else { return }
+        _ = try? await client.stop(id: id)
+        await refresh()
+    }
+
+    func refresh() async {
+        guard let client else { return }
+        active = (try? await client.active())?.first
+        await refreshWeek()
+        tickElapsed()
+    }
+
+    private func refreshWeek() async {
+        guard let client else { return }
+        var cal = Calendar(identifier: .iso8601)
+        cal.timeZone = .current
+        let now = Date()
+        let comps = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
+        guard let weekStart = cal.date(from: comps) else { return }
+        let weekEnd = cal.date(byAdding: .day, value: 7, to: weekStart)!
+        if let entries = try? await client.timesheets(begin: weekStart, end: weekEnd) {
+            weekHours = Self.weekHours(entries: entries, weekStart: weekStart, calendar: cal, now: now)
+        }
+    }
+
+    private func startTimers() {
+        pollTimer?.invalidate()
+        tickTimer?.invalidate()
+        pollTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
+            Task { @MainActor in await self?.refresh() }
+        }
+        tickTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.tickElapsed() }
+        }
+    }
+
+    private func tickElapsed() {
+        guard let begin = active?.begin else { elapsedString = "--:--:--"; return }
+        elapsedString = Self.elapsedString(seconds: Int(Date().timeIntervalSince(begin)))
+    }
 }
