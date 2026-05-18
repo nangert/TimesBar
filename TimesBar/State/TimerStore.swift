@@ -159,12 +159,20 @@ final class TimerStore: ObservableObject {
     private func startTimers() {
         pollTimer?.invalidate()
         tickTimer?.invalidate()
-        pollTimer = Timer.scheduledTimer(withTimeInterval: 10, repeats: true) { [weak self] _ in
+
+        // Schedule on `.common` so the timers continue to fire while the MenuBarExtra
+        // dropdown is open (the run loop is in `.eventTracking` then, and a timer
+        // scheduled in `.default` would silently freeze).
+        let poll = Timer(timeInterval: 10, repeats: true) { [weak self] _ in
             Task { @MainActor in await self?.refresh() }
         }
-        tickTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+        let tick = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tickElapsed() }
         }
+        RunLoop.main.add(poll, forMode: .common)
+        RunLoop.main.add(tick, forMode: .common)
+        pollTimer = poll
+        tickTimer = tick
     }
 
     private func tickElapsed() {
