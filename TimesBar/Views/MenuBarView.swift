@@ -53,9 +53,3 @@ struct FooterRow: View {
     }
 }
 
-struct TokenSetupSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    var body: some View {
-        VStack { Text("Settings (stub)"); Button("Close") { dismiss() } }.padding()
-    }
-}
