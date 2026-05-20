@@ -23,6 +23,24 @@ final class TimerStore: ObservableObject {
     @Published var loadingYear: Int?
 
     private static let vacationBudgetDaysKey = "vacationBudgetDays"
+    private static let hoursPerWeekKey = "hoursPerWeek"
+
+    /// Contractual working hours per week. Drives the Monthly balance page's
+    /// "expected" math (hoursPerWeek ÷ 5 = hours per working day, Mon–Fri).
+    /// Kimai's API doesn't expose this on the bundle your install carries,
+    /// so it's set once via the Monthly balance page.
+    var hoursPerWeek: Double {
+        get {
+            let stored = UserDefaults.standard.double(forKey: Self.hoursPerWeekKey)
+            return stored > 0 ? stored : 40.0
+        }
+        set {
+            objectWillChange.send()
+            UserDefaults.standard.set(newValue, forKey: Self.hoursPerWeekKey)
+        }
+    }
+
+    var hoursPerWorkingDay: Double { hoursPerWeek / 5.0 }
 
     /// Auto-detected year of the user's earliest timesheet. Populated by
     /// `detectFirstTimesheetYear()` on bootstrap. Drives `vacationTrackingStartYear`.

@@ -10,12 +10,12 @@ struct MonthlyStats: Equatable {
 }
 
 enum MonthlyBalanceCalculator {
-    /// Default expected hours per working day.
-    static let hoursPerWorkingDay = 8.0
-
     /// Compute one month of stats from the cached raw collections.
+    /// `hoursPerWorkingDay` is supplied by the caller — typically
+    /// `TimerStore.hoursPerWorkingDay` (= `hoursPerWeek / 5`).
     static func stats(year: Int,
                       month: Int,
+                      hoursPerWorkingDay: Double,
                       timesheets: [TimesheetEntity],
                       absences: [Absence],
                       publicHolidays: [PublicHoliday],
@@ -29,9 +29,11 @@ enum MonthlyBalanceCalculator {
             return MonthlyStats(month: month, expectedHours: 0, actualHours: 0)
         }
 
-        // Cap the iteration at "today" so the current month shows partial expected/actual,
-        // and future months collapse to zero.
-        let endOfWindow = min(nextMonthStart, max(monthStart, cal.startOfDay(for: now).addingTimeInterval(86_400)))
+        // Cap at the start of today (exclusive). Past months iterate fully;
+        // the current month only counts days that are *completed* — today
+        // itself doesn't add to the expected pool yet. That avoids
+        // penalising people mid-day when they haven't worked 8h yet.
+        let endOfWindow = min(nextMonthStart, max(monthStart, cal.startOfDay(for: now)))
 
         // Build half-day-aware weight maps by start-of-day key
         var holidayWeights: [Date: Double] = [:]

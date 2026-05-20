@@ -87,6 +87,7 @@ struct MonthlyBalanceView: View {
                     MonthlyBalanceCalculator.stats(
                         year: year,
                         month: month,
+                        hoursPerWorkingDay: store.hoursPerWorkingDay,
                         timesheets: data.timesheets,
                         absences: data.absences,
                         publicHolidays: data.publicHolidays
@@ -95,6 +96,8 @@ struct MonthlyBalanceView: View {
                 monthsList(stats)
                 Divider()
                 yearTotalRow(stats: stats)
+                Divider()
+                hoursPerWeekEditor
             }
         }
     }
@@ -153,6 +156,33 @@ struct MonthlyBalanceView: View {
             balanceChip(totalBalance, isCurrentMonth: false)
         }
         .padding(.vertical, 2)
+    }
+
+    private var hoursPerWeekEditor: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text("Hours per week")
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+            Spacer()
+            Stepper(
+                value: Binding(
+                    get: { store.hoursPerWeek },
+                    set: { store.hoursPerWeek = $0 }
+                ),
+                in: 0...80,
+                step: 0.5
+            ) {
+                Text(formatHoursPerWeek(store.hoursPerWeek))
+                    .font(.system(size: 11, design: .monospaced))
+            }
+            .controlSize(.mini)
+        }
+    }
+
+    private func formatHoursPerWeek(_ hours: Double) -> String {
+        hours.truncatingRemainder(dividingBy: 1) == 0
+            ? "\(Int(hours)) h"
+            : String(format: "%.1f h", hours)
     }
 
     private func balanceChip(_ balance: Double, isCurrentMonth: Bool) -> some View {
