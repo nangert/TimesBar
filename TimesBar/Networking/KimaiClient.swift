@@ -85,6 +85,17 @@ struct KimaiClient {
         return try JSONDecoder.kimai.decode(TimesheetEntity.self, from: data)
     }
 
+    func absences(begin: Date, end: Date, status: String = "approved") async throws -> [Absence] {
+        let items = [
+            URLQueryItem(name: "begin", value: Self.kimaiLocalFormatter.string(from: begin)),
+            URLQueryItem(name: "end", value: Self.kimaiLocalFormatter.string(from: end)),
+            URLQueryItem(name: "status", value: status),
+        ]
+        let (data, _) = try await session.data(
+            for: request("/api/absences", queryItems: items))
+        return try JSONDecoder.kimai.decode([Absence].self, from: data)
+    }
+
     func timesheets(begin: Date, end: Date, size: Int = 500) async throws -> [TimesheetEntity] {
         let items = [
             URLQueryItem(name: "begin", value: Self.kimaiLocalFormatter.string(from: begin)),

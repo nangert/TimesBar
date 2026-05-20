@@ -4,6 +4,7 @@ struct MenuBarView: View {
     @EnvironmentObject var store: TimerStore
     @State private var showingSettings = false
     @State private var showingStartForm = false
+    @State private var showingTimeOff = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -16,16 +17,24 @@ struct MenuBarView: View {
                     onCancel: { showingSettings = false },
                     onSaved: { showingSettings = false }
                 )
+            } else if showingTimeOff {
+                TimeOffView(onClose: { showingTimeOff = false })
             } else {
                 authenticatedContent
             }
             Divider()
             FooterRow(
                 onSettings: { showingSettings.toggle() },
+                onTimeOff: {
+                    showingTimeOff = true
+                    showingSettings = false
+                    showingStartForm = false
+                },
                 onSignOut: {
                     store.signOut()
                     showingSettings = false
                     showingStartForm = false
+                    showingTimeOff = false
                 }
             )
         }

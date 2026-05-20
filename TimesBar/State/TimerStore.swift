@@ -10,6 +10,35 @@ final class TimerStore: ObservableObject {
     @Published var recent: [TimesheetEntity] = []
     @Published var projectTitles: [Int: String] = [:]
     @Published var activityTitles: [Int: String] = [:]
+    @Published var absences: [Absence] = []
+
+    private static let vacationBudgetDaysKey = "vacationBudgetDays"
+
+    var vacationBudgetDays: Int {
+        get {
+            let stored = UserDefaults.standard.integer(forKey: Self.vacationBudgetDaysKey)
+            return stored > 0 ? stored : 25
+        }
+        set {
+            objectWillChange.send()
+            UserDefaults.standard.set(newValue, forKey: Self.vacationBudgetDaysKey)
+        }
+    }
+
+    /// Approved vacation days used in the current calendar year.
+    var vacationUsedDays: Double {
+        absences
+            .filter { $0.type.lowercased() == "holiday" }
+            .reduce(0.0) { $0 + $1.dayWeight }
+    }
+
+    /// Upcoming approved absences from today forward, sorted ascending.
+    var upcomingAbsences: [Absence] {
+        let today = Calendar.current.startOfDay(for: Date())
+        return absences
+            .filter { $0.date >= today }
+            .sorted { $0.date < $1.date }
+    }
 
     var isRunning: Bool { active != nil }
 
@@ -56,6 +85,7 @@ final class TimerStore: ObservableObject {
             isAuthenticated = true
             Task {
                 await refreshDirectory()
+                await refreshAbsences()
                 await refresh()
             }
             startTimers()
@@ -92,6 +122,21 @@ final class TimerStore: ObservableObject {
         }
     }
 
+    /// Fetch this calendar year's approved absences. Cheap-ish but rarely changes,
+    /// so we call it on bootstrap and when the Time-off panel is opened, not on
+    /// the 10s poll loop.
+    func refreshAbsences() async {
+        guard let client else { return }
+        var cal = Calendar(identifier: .iso8601)
+        cal.timeZone = .current
+        let now = Date()
+        let yearStart = cal.date(from: cal.dateComponents([.year], from: now)) ?? now
+        let yearEnd = cal.date(byAdding: .year, value: 1, to: yearStart) ?? now
+        if let entries = try? await client.absences(begin: yearStart, end: yearEnd, status: "approved") {
+            absences = entries
+        }
+    }
+
     func signOut() {
         TokenStore().delete()
         client = nil
@@ -102,6 +147,7 @@ final class TimerStore: ObservableObject {
         recent = []
         projectTitles = [:]
         activityTitles = [:]
+        absences = []
         pollTimer?.invalidate()
         tickTimer?.invalidate()
     }

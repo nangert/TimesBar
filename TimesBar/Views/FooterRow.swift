@@ -3,6 +3,7 @@ import AppKit
 
 struct FooterRow: View {
     let onSettings: () -> Void
+    let onTimeOff: () -> Void
     let onSignOut: () -> Void
 
     var body: some View {
@@ -32,6 +33,10 @@ struct FooterRow: View {
             .buttonStyle(.plain)
 
             Menu {
+                Button(action: onTimeOff) {
+                    Label("Time off…", systemImage: "beach.umbrella")
+                }
+                Divider()
                 Button("Sign out", role: .destructive, action: onSignOut)
                 Divider()
                 Button("Quit TimesBar") { NSApp.terminate(nil) }
