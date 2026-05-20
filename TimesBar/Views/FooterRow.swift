@@ -7,6 +7,8 @@ struct FooterRow: View {
     let onMonthlyBalance: () -> Void
     let onSignOut: () -> Void
 
+    @State private var launchAtLogin = LaunchAtLogin.isEnabled
+
     var body: some View {
         HStack(spacing: 14) {
             Button(action: onSettings) {
@@ -41,6 +43,8 @@ struct FooterRow: View {
                     Label("Time off…", systemImage: "beach.umbrella")
                 }
                 Divider()
+                Toggle("Launch at login", isOn: $launchAtLogin)
+                Divider()
                 Button("Sign out", role: .destructive, action: onSignOut)
                 Divider()
                 Button("Quit TimesBar") { NSApp.terminate(nil) }
@@ -53,6 +57,12 @@ struct FooterRow: View {
             .menuStyle(.borderlessButton)
             .menuIndicator(.hidden)
             .fixedSize()
+            .onChange(of: launchAtLogin) { _, newValue in
+                _ = LaunchAtLogin.set(newValue)
+                // Re-read so the UI reflects whatever macOS settled on
+                // (e.g. .requiresApproval rejects without changing isEnabled).
+                launchAtLogin = LaunchAtLogin.isEnabled
+            }
         }
     }
 }
