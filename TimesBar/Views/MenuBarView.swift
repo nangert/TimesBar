@@ -78,11 +78,10 @@ struct MenuBarView: View {
                     onStart: { item in
                         quickStartError = nil
                         Task {
-                            let ok = await store.startCheckingResult(
-                                project: item.projectId,
-                                activity: item.activityId,
-                                description: item.description
-                            )
+                            // Use Kimai's /restart endpoint instead of POSTing a
+                            // fresh /timesheets entry so description + tags are
+                            // copied automatically (`copy=all`).
+                            let ok = await store.resumeCheckingResult(timesheetId: item.id)
                             if !ok {
                                 quickStartError = "Kimai rejected the request. The activity may not belong to that project anymore."
                             }

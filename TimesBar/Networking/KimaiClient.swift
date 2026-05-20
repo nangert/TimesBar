@@ -25,6 +25,16 @@ struct KimaiClient {
         return f
     }()
 
+    /// Absence dates use plain `yyyy-MM-dd` (no time component). Matches the
+    /// `"2025-05-24"` example in the swagger.
+    private static let absenceDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = .current
+        return f
+    }()
+
     private func request(_ path: String,
                          method: String = "GET",
                          queryItems: [URLQueryItem]? = nil,
@@ -127,6 +137,23 @@ struct KimaiClient {
         return try JSONDecoder.kimai.decode(TimesheetEntity.self, from: data)
     }
 
+    /// Restart a stopped timesheet — creates a *new* entry with the same
+    /// customer/project/activity combo. With `copyAll: true` (the default),
+    /// Kimai also copies the description and tags, which is what the menu
+    /// bar's quick-start path wants — re-issuing `POST /timesheets` from
+    /// scratch would lose tags.
+    func restart(id: Int, copyAll: Bool = true) async throws -> TimesheetEntity {
+        let body: Data?
+        if copyAll {
+            body = try JSONSerialization.data(withJSONObject: ["copy": "all"])
+        } else {
+            body = nil
+        }
+        let data = try await send(
+            request("/api/timesheets/\(id)/restart", method: "PATCH", body: body))
+        return try JSONDecoder.kimai.decode(TimesheetEntity.self, from: data)
+    }
+
     /// Calendar year of the user's earliest timesheet, or nil if there are none.
     /// Uses `orderBy=begin&order=ASC&size=1` for a one-row response.
     func firstTimesheetYear() async throws -> Int? {
@@ -150,6 +177,40 @@ struct KimaiClient {
         let data = try await send(
             request("/api/public-holidays", queryItems: items))
         return try JSONDecoder.kimai.decode([PublicHoliday].self, from: data)
+    }
+
+    /// Create a new absence request. Kimai returns an array — multi-day
+    /// requests are expanded into one absence per day server-side.
+    /// `user` is required by the API; pass `UserMe.id`.
+    func createAbsence(user: Int,
+                       date: Date,
+                       end: Date?,
+                       type: String,
+                       halfDay: Bool,
+                       comment: String?) async throws -> [Absence] {
+        var payload: [String: Any] = [
+            "user": user,
+            "date": Self.absenceDateFormatter.string(from: date),
+            "type": type,
+            "halfDay": halfDay,
+        ]
+        if let end {
+            payload["end"] = Self.absenceDateFormatter.string(from: end)
+        }
+        if let comment, !comment.isEmpty {
+            payload["comment"] = comment
+        }
+        let body = try JSONSerialization.data(withJSONObject: payload)
+        let data = try await send(
+            request("/api/absences", method: "POST", body: body))
+        return try JSONDecoder.kimai.decode([Absence].self, from: data)
+    }
+
+    /// Delete (cancel) an absence by ID. Requires `delete_absence` permission;
+    /// Kimai allows users to remove their own pending requests by default.
+    func deleteAbsence(id: Int) async throws {
+        _ = try await send(
+            request("/api/absences/\(id)", method: "DELETE"))
     }
 
     func absences(begin: Date, end: Date, status: String = "approved") async throws -> [Absence] {

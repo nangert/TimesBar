@@ -140,6 +140,144 @@ struct KimaiClientTests {
                              options: .regularExpression) != nil)
     }
 
+    // MARK: - Absences
+
+    @Test func createAbsenceSendsPostWithDateAndType() async throws {
+        nonisolated(unsafe) var captured: URLRequest?
+        let session = mockSession { req in
+            captured = req
+            let body = """
+            [{"id":42,"date":"2026-08-05","type":"holiday","status":"new","halfDay":false}]
+            """
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data(body.utf8))
+        }
+        let client = KimaiClient(token: "t", session: session)
+        var cal = Calendar(identifier: .iso8601)
+        cal.timeZone = .current
+        let date = cal.date(from: DateComponents(year: 2026, month: 8, day: 5))!
+
+        let created = try await client.createAbsence(
+            user: 7,
+            date: date,
+            end: nil,
+            type: "holiday",
+            halfDay: false,
+            comment: "Vacation")
+
+        #expect(captured?.httpMethod == "POST")
+        #expect(captured?.url?.path == "/api/absences")
+        #expect(created.count == 1)
+        #expect(created[0].id == 42)
+
+        let bodyData = try #require(captured).capturedBody()
+        let decoded = try JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
+        #expect(decoded?["user"] as? Int == 7)
+        #expect(decoded?["date"] as? String == "2026-08-05")
+        #expect(decoded?["type"] as? String == "holiday")
+        #expect(decoded?["halfDay"] as? Bool == false)
+        #expect(decoded?["comment"] as? String == "Vacation")
+        #expect(decoded?["end"] == nil)
+    }
+
+    @Test func createAbsenceIncludesEndDateWhenProvided() async throws {
+        nonisolated(unsafe) var captured: URLRequest?
+        let session = mockSession { req in
+            captured = req
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data("[]".utf8))
+        }
+        let client = KimaiClient(token: "t", session: session)
+        var cal = Calendar(identifier: .iso8601)
+        cal.timeZone = .current
+        let begin = cal.date(from: DateComponents(year: 2026, month: 8, day: 5))!
+        let end = cal.date(from: DateComponents(year: 2026, month: 8, day: 9))!
+
+        _ = try await client.createAbsence(
+            user: 7, date: begin, end: end, type: "holiday",
+            halfDay: false, comment: nil)
+
+        let bodyData = try #require(captured).capturedBody()
+        let decoded = try JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
+        #expect(decoded?["date"] as? String == "2026-08-05")
+        #expect(decoded?["end"] as? String == "2026-08-09")
+        // Empty comment is omitted from the payload.
+        #expect(decoded?["comment"] == nil)
+    }
+
+    @Test func createAbsenceHalfDayTogglePropagates() async throws {
+        nonisolated(unsafe) var captured: URLRequest?
+        let session = mockSession { req in
+            captured = req
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data("[]".utf8))
+        }
+        let client = KimaiClient(token: "t", session: session)
+        _ = try await client.createAbsence(
+            user: 7, date: Date(), end: nil, type: "holiday",
+            halfDay: true, comment: nil)
+
+        let bodyData = try #require(captured).capturedBody()
+        let decoded = try JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
+        #expect(decoded?["halfDay"] as? Bool == true)
+    }
+
+    @Test func deleteAbsenceSendsDeleteToCorrectPath() async throws {
+        nonisolated(unsafe) var captured: URLRequest?
+        let session = mockSession { req in
+            captured = req
+            let response = HTTPURLResponse(url: req.url!, statusCode: 204, httpVersion: nil, headerFields: nil)!
+            return (response, Data())
+        }
+        let client = KimaiClient(token: "t", session: session)
+        try await client.deleteAbsence(id: 123)
+
+        #expect(captured?.httpMethod == "DELETE")
+        #expect(captured?.url?.path == "/api/absences/123")
+    }
+
+    // MARK: - Restart
+
+    @Test func restartSendsPatchWithCopyAll() async throws {
+        nonisolated(unsafe) var captured: URLRequest?
+        let session = mockSession { req in
+            captured = req
+            let body = """
+            {"id":555,"project":1,"activity":2,"begin":"2026-05-20T11:00:00+0200","end":null,"description":"copied"}
+            """
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data(body.utf8))
+        }
+        let client = KimaiClient(token: "t", session: session)
+        let entry = try await client.restart(id: 99)
+
+        #expect(captured?.httpMethod == "PATCH")
+        #expect(captured?.url?.path == "/api/timesheets/99/restart")
+        #expect(entry.id == 555)
+
+        let bodyData = try #require(captured).capturedBody()
+        let decoded = try JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
+        #expect(decoded?["copy"] as? String == "all")
+    }
+
+    @Test func restartWithoutCopySendsEmptyBody() async throws {
+        nonisolated(unsafe) var captured: URLRequest?
+        let session = mockSession { req in
+            captured = req
+            let body = """
+            {"id":1,"project":1,"activity":1,"begin":"2026-05-20T11:00:00+0200","end":null,"description":null}
+            """
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data(body.utf8))
+        }
+        let client = KimaiClient(token: "t", session: session)
+        _ = try await client.restart(id: 99, copyAll: false)
+
+        #expect(captured?.httpMethod == "PATCH")
+        let bodyData = try #require(captured).capturedBody()
+        #expect(bodyData.isEmpty)
+    }
+
     // MARK: - Pagination
 
     @Test func timesheetsPagesUntilShortPageReturned() async throws {

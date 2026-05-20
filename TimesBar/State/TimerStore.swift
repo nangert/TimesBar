@@ -291,6 +291,51 @@ final class TimerStore: ObservableObject {
         loadingYear = nil
     }
 
+    /// Create an absence request (vacation, sick day, etc.) for the current
+    /// user. Returns `true` on success; refreshes the cached absence list so
+    /// the Time-off panel updates immediately.
+    @discardableResult
+    func requestAbsence(date: Date,
+                        end: Date?,
+                        type: String,
+                        halfDay: Bool,
+                        comment: String?) async -> Bool {
+        guard let client, let userId = userMe?.id else { return false }
+        do {
+            _ = try await client.createAbsence(
+                user: userId,
+                date: date,
+                end: end,
+                type: type,
+                halfDay: halfDay,
+                comment: comment)
+            await refreshAbsences()
+            return true
+        } catch KimaiError.unauthorized {
+            handleUnauthorized()
+            return false
+        } catch {
+            return false
+        }
+    }
+
+    /// Cancel an absence by ID. Refreshes the absence list on success so the
+    /// row disappears from the Upcoming list without a manual reload.
+    @discardableResult
+    func cancelAbsence(id: Int) async -> Bool {
+        guard let client else { return false }
+        do {
+            try await client.deleteAbsence(id: id)
+            await refreshAbsences()
+            return true
+        } catch KimaiError.unauthorized {
+            handleUnauthorized()
+            return false
+        } catch {
+            return false
+        }
+    }
+
     /// Fetch approved absences from the tracking start year through the end
     /// of the current year. Rarely changes, so we call it on bootstrap, on
     /// entering the Time-off panel, and when the budget/year settings change.
@@ -356,6 +401,26 @@ final class TimerStore: ObservableObject {
         guard let client else { return false }
         do {
             _ = try await client.start(project: project, activity: activity, description: description)
+            await refresh()
+            return true
+        } catch KimaiError.unauthorized {
+            handleUnauthorized()
+            return false
+        } catch {
+            return false
+        }
+    }
+
+    /// Resume a previous timesheet entry via Kimai's dedicated restart endpoint.
+    /// Unlike `startCheckingResult`, which re-creates the entry from scratch via
+    /// `POST /api/timesheets`, this copies the original's tags and description
+    /// for free — the quick-start UI hits this path so re-running yesterday's
+    /// `#deep-work · Auth refactor` entry preserves both.
+    @discardableResult
+    func resumeCheckingResult(timesheetId: Int) async -> Bool {
+        guard let client else { return false }
+        do {
+            _ = try await client.restart(id: timesheetId, copyAll: true)
             await refresh()
             return true
         } catch KimaiError.unauthorized {
