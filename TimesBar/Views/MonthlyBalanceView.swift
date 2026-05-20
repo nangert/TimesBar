@@ -77,9 +77,9 @@ struct MonthlyBalanceView: View {
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.vertical, 18)
         } else if let data = store.yearlyData {
-            let months = MonthlyBalanceCalculator.months(for: year)
+            let months = MonthlyBalanceCalculator.months(for: year, timesheets: data.timesheets)
             if months.isEmpty {
-                Text("Nothing here for \(String(year)) yet.")
+                Text("No time entries logged for \(String(year)).")
                     .font(.system(size: 12))
                     .foregroundStyle(.secondary)
             } else {

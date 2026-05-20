@@ -72,13 +72,27 @@ enum MonthlyBalanceCalculator {
         return MonthlyStats(month: month, expectedHours: expectedHours, actualHours: actualHours)
     }
 
-    /// All months from January through (current month, or December for past years).
-    static func months(for year: Int, now: Date = Date()) -> [Int] {
-        let cal = Calendar(identifier: .iso8601)
+    /// Months we should render for the given year: every month that has at
+    /// least one timesheet entry, plus the current month if we're looking at
+    /// the current year (so today's progress is always visible even before
+    /// the user logs anything).
+    static func months(for year: Int,
+                       timesheets: [TimesheetEntity],
+                       now: Date = Date()) -> [Int] {
+        var cal = Calendar(identifier: .iso8601)
+        cal.timeZone = .current
+
+        var visible = Set<Int>()
+        for t in timesheets {
+            let comps = cal.dateComponents([.year, .month], from: t.begin)
+            if comps.year == year, let m = comps.month { visible.insert(m) }
+        }
+
         let nowYear = cal.component(.year, from: now)
-        if year < nowYear { return Array(1...12) }
-        if year > nowYear { return [] }
-        let lastMonth = cal.component(.month, from: now)
-        return Array(1...lastMonth)
+        if year == nowYear {
+            visible.insert(cal.component(.month, from: now))
+        }
+
+        return visible.sorted()
     }
 }
