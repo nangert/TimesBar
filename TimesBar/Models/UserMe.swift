@@ -35,4 +35,15 @@ struct UserMe: Decodable, Equatable, Sendable {
         guard let raw = preference("public_holiday_group") else { return nil }
         return Int(raw)
     }
+
+    /// Contract start date (e.g. "2024-07-01"). Used to prorate the first
+    /// year's vacation budget and to compute multi-year balances.
+    var workStartDate: Date? {
+        guard let raw = preference("work_start_day") else { return nil }
+        let f = DateFormatter()
+        f.dateFormat = "yyyy-MM-dd"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = .current
+        return f.date(from: raw)
+    }
 }

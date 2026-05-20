@@ -31,8 +31,9 @@ struct TimeOffView: View {
 
     private var vacationCard: some View {
         let used = store.vacationUsedDays
-        let total = max(Double(store.vacationTotalAvailable), 0.0001)
+        let total = max(store.vacationTotalAvailable, 0.0001)
         let progress = min(used / total, 1.0)
+        let breakdown = store.vacationBreakdown
         return VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
                 SectionHeader(text: "Urlaub")
@@ -40,7 +41,7 @@ struct TimeOffView: View {
                 HStack(spacing: 0) {
                     Text(formatDays(used))
                         .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    Text(" / \(store.vacationTotalAvailable) days")
+                    Text(" / \(formatDays(store.vacationTotalAvailable)) days")
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(.secondary)
                 }
@@ -55,20 +56,50 @@ struct TimeOffView: View {
                 }
             }
             .frame(height: 4)
-            HStack(spacing: 6) {
-                Text("\(formatDays(store.vacationRemainingDays)) days remaining")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
-                if store.vacationYearsAccrued > 1 {
-                    Text("·")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                    Text("\(store.vacationYearsAccrued) yrs × \(store.vacationBudgetDays) since \(store.vacationTrackingStartYear)")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
+            Text("\(formatDays(store.vacationRemainingDays)) days remaining")
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+
+            if breakdown.count > 1 {
+                yearBreakdown(breakdown)
+            }
+        }
+    }
+
+    private func yearBreakdown(_ stats: [TimerStore.VacationYearStats]) -> some View {
+        let currentYear = Calendar.current.component(.year, from: Date())
+        let annual = Double(store.vacationBudgetDays)
+        return VStack(spacing: 2) {
+            ForEach(stats, id: \.year) { s in
+                HStack(spacing: 6) {
+                    Text(String(s.year))
+                        .font(.system(size: 11, weight: s.year == currentYear ? .medium : .regular,
+                                       design: .monospaced))
+                        .foregroundStyle(s.year == currentYear ? Color.primary : .secondary)
+                        .frame(width: 38, alignment: .leading)
+                    HStack(spacing: 0) {
+                        Text(formatDays(s.used))
+                            .font(.system(size: 11, design: .monospaced))
+                        Text(" / \(formatDays(s.available))")
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
+                    if s.available > 0 && s.available < annual {
+                        Text("prorated")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(
+                                RoundedRectangle(cornerRadius: 3)
+                                    .fill(Color.secondary.opacity(0.12))
+                            )
+                    }
+                    Spacer()
                 }
             }
         }
+        .padding(.top, 4)
     }
 
     private var upcomingList: some View {
@@ -128,13 +159,16 @@ struct TimeOffView: View {
     }
 
     private var detectedFootnote: String {
-        if let detected = store.detectedFirstTimesheetYear {
-            let years = store.vacationYearsAccrued
-            let plural = years == 1 ? "year" : "years"
-            return "Counting from \(detected) — your earliest timesheet (\(years) \(plural))."
-        } else {
-            return "Counting from the current year. Once you log timesheets across multiple years, TimesBar picks up the earliest one automatically."
+        if let start = store.contractStartDate {
+            let f = DateFormatter()
+            f.dateFormat = "d MMM yyyy"
+            f.locale = Locale(identifier: "en_US_POSIX")
+            return "Contract started \(f.string(from: start)) (from your Kimai profile)."
         }
+        if let detected = store.detectedFirstTimesheetYear {
+            return "Counting from \(detected), your earliest timesheet."
+        }
+        return "Counting from the current year. Log timesheets across multiple years and TimesBar picks the earliest one up."
     }
 
     // MARK: - Helpers
