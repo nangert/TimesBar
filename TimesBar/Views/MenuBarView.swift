@@ -5,6 +5,7 @@ struct MenuBarView: View {
     @State private var showingSettings = false
     @State private var showingStartForm = false
     @State private var showingTimeOff = false
+    @State private var showingMonthlyBalance = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -19,6 +20,8 @@ struct MenuBarView: View {
                 )
             } else if showingTimeOff {
                 TimeOffView(onClose: { showingTimeOff = false })
+            } else if showingMonthlyBalance {
+                MonthlyBalanceView(onClose: { showingMonthlyBalance = false })
             } else {
                 authenticatedContent
             }
@@ -29,12 +32,20 @@ struct MenuBarView: View {
                     showingTimeOff = true
                     showingSettings = false
                     showingStartForm = false
+                    showingMonthlyBalance = false
+                },
+                onMonthlyBalance: {
+                    showingMonthlyBalance = true
+                    showingSettings = false
+                    showingStartForm = false
+                    showingTimeOff = false
                 },
                 onSignOut: {
                     store.signOut()
                     showingSettings = false
                     showingStartForm = false
                     showingTimeOff = false
+                    showingMonthlyBalance = false
                 }
             )
         }

@@ -4,6 +4,7 @@ import AppKit
 struct FooterRow: View {
     let onSettings: () -> Void
     let onTimeOff: () -> Void
+    let onMonthlyBalance: () -> Void
     let onSignOut: () -> Void
 
     var body: some View {
@@ -33,6 +34,9 @@ struct FooterRow: View {
             .buttonStyle(.plain)
 
             Menu {
+                Button(action: onMonthlyBalance) {
+                    Label("Monthly balance…", systemImage: "chart.bar")
+                }
                 Button(action: onTimeOff) {
                     Label("Time off…", systemImage: "beach.umbrella")
                 }

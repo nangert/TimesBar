@@ -12,6 +12,16 @@ final class TimerStore: ObservableObject {
     @Published var activityTitles: [Int: String] = [:]
     @Published var absences: [Absence] = []
 
+    // Monthly-balance cache: full set of raw data per year, keyed by year.
+    struct YearlyData: Equatable {
+        let year: Int
+        let timesheets: [TimesheetEntity]
+        let absences: [Absence]
+        let publicHolidays: [PublicHoliday]
+    }
+    @Published var yearlyData: YearlyData?
+    @Published var loadingYear: Int?
+
     private static let vacationBudgetDaysKey = "vacationBudgetDays"
     private static let vacationTrackingStartYearKey = "vacationTrackingStartYear"
 
@@ -157,6 +167,29 @@ final class TimerStore: ObservableObject {
         }
     }
 
+    /// Load all raw data needed for the Monthly balance page for one year.
+    /// Three concurrent calls (timesheets, absences, public holidays).
+    func loadYearlyData(_ year: Int) async {
+        guard let client else { return }
+        loadingYear = year
+        var cal = Calendar(identifier: .iso8601)
+        cal.timeZone = .current
+        guard let begin = cal.date(from: DateComponents(year: year, month: 1, day: 1)),
+              let end = cal.date(from: DateComponents(year: year + 1, month: 1, day: 1))
+        else { loadingYear = nil; return }
+
+        async let timesheets = client.timesheets(begin: begin, end: end, size: 500)
+        async let absences = client.absences(begin: begin, end: end, status: "approved")
+        async let holidays = client.publicHolidays(begin: begin, end: end)
+
+        let t = (try? await timesheets) ?? []
+        let a = (try? await absences) ?? []
+        let h = (try? await holidays) ?? []
+
+        yearlyData = YearlyData(year: year, timesheets: t, absences: a, publicHolidays: h)
+        loadingYear = nil
+    }
+
     /// Fetch approved absences from the tracking start year through the end
     /// of the current year. Rarely changes, so we call it on bootstrap, on
     /// entering the Time-off panel, and when the budget/year settings change.
@@ -184,6 +217,7 @@ final class TimerStore: ObservableObject {
         projectTitles = [:]
         activityTitles = [:]
         absences = []
+        yearlyData = nil
         pollTimer?.invalidate()
         tickTimer?.invalidate()
     }
