@@ -13,7 +13,11 @@ final class TimerStore: ObservableObject {
     @Published var absences: [Absence] = []
 
     private static let vacationBudgetDaysKey = "vacationBudgetDays"
+    private static let vacationCarryoverDaysKey = "vacationCarryoverDays"
 
+    /// This year's contractual vacation budget. The Kimai API doesn't expose
+    /// the `holidaysPerYear` contract field on this install, so the user
+    /// configures it once via the Time-off page.
     var vacationBudgetDays: Int {
         get {
             let stored = UserDefaults.standard.integer(forKey: Self.vacationBudgetDaysKey)
@@ -23,6 +27,24 @@ final class TimerStore: ObservableObject {
             objectWillChange.send()
             UserDefaults.standard.set(newValue, forKey: Self.vacationBudgetDaysKey)
         }
+    }
+
+    /// Days carried over from previous years. Defaults to 0.
+    var vacationCarryoverDays: Int {
+        get { UserDefaults.standard.integer(forKey: Self.vacationCarryoverDaysKey) }
+        set {
+            objectWillChange.send()
+            UserDefaults.standard.set(newValue, forKey: Self.vacationCarryoverDaysKey)
+        }
+    }
+
+    /// Total pool of vacation days for the current year, carry-over included.
+    var vacationTotalAvailable: Int {
+        vacationBudgetDays + vacationCarryoverDays
+    }
+
+    var vacationRemainingDays: Double {
+        max(Double(vacationTotalAvailable) - vacationUsedDays, 0)
     }
 
     /// Approved vacation days used in the current calendar year.

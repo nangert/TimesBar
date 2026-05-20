@@ -31,8 +31,7 @@ struct TimeOffView: View {
 
     private var vacationCard: some View {
         let used = store.vacationUsedDays
-        let total = max(Double(store.vacationBudgetDays), 0.0001)
-        let remaining = max(Double(store.vacationBudgetDays) - used, 0)
+        let total = max(Double(store.vacationTotalAvailable), 0.0001)
         let progress = min(used / total, 1.0)
         return VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
@@ -41,7 +40,7 @@ struct TimeOffView: View {
                 HStack(spacing: 0) {
                     Text(formatDays(used))
                         .font(.system(size: 12, weight: .medium, design: .monospaced))
-                    Text(" / \(store.vacationBudgetDays) days")
+                    Text(" / \(store.vacationTotalAvailable) days")
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(.secondary)
                 }
@@ -56,9 +55,17 @@ struct TimeOffView: View {
                 }
             }
             .frame(height: 4)
-            Text("\(formatDays(remaining)) days remaining this year")
-                .font(.system(size: 10))
-                .foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                Text("\(formatDays(store.vacationRemainingDays)) days remaining")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                if store.vacationCarryoverDays > 0 {
+                    Text("·").foregroundStyle(.secondary).font(.system(size: 10))
+                    Text("\(store.vacationBudgetDays) + \(store.vacationCarryoverDays) carried")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
     }
 
@@ -102,19 +109,42 @@ struct TimeOffView: View {
     }
 
     private var budgetEditor: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text("Annual vacation budget")
-                .font(.system(size: 11))
+        VStack(alignment: .leading, spacing: 6) {
+            SectionHeader(text: "Budget")
+            Text("Kimai's API doesn't expose your contract settings, so set these once.")
+                .font(.system(size: 10))
                 .foregroundStyle(.secondary)
-            Spacer()
-            Stepper(
+                .fixedSize(horizontal: false, vertical: true)
+            stepperRow(
+                label: "Annual",
                 value: Binding(
                     get: { store.vacationBudgetDays },
                     set: { store.vacationBudgetDays = $0 }
                 ),
-                in: 0...60
-            ) {
-                Text("\(store.vacationBudgetDays) days")
+                range: 0...60
+            )
+            stepperRow(
+                label: "Carryover",
+                value: Binding(
+                    get: { store.vacationCarryoverDays },
+                    set: { store.vacationCarryoverDays = $0 }
+                ),
+                range: 0...60
+            )
+        }
+    }
+
+    private func stepperRow(label: String,
+                             value: Binding<Int>,
+                             range: ClosedRange<Int>) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(label)
+                .font(.system(size: 11))
+                .foregroundStyle(.secondary)
+                .frame(width: 70, alignment: .leading)
+            Spacer()
+            Stepper(value: value, in: range) {
+                Text("\(value.wrappedValue) days")
                     .font(.system(size: 11, design: .monospaced))
             }
             .controlSize(.mini)
