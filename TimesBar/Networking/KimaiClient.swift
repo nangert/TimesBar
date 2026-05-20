@@ -40,40 +40,57 @@ struct KimaiClient {
         return req
     }
 
+    /// Send a request and return the body, throwing `KimaiError.unauthorized` on 401/403
+    /// or `.server` on any other non-2xx status. Decoding errors stay as
+    /// `DecodingError` so we can debug payload-shape changes.
+    private func send(_ req: URLRequest) async throws -> Data {
+        let (data, response) = try await session.data(for: req)
+        guard let http = response as? HTTPURLResponse else { return data }
+        switch http.statusCode {
+        case 200..<300:
+            return data
+        case 401, 403:
+            throw KimaiError.unauthorized
+        default:
+            let body = String(data: data, encoding: .utf8)
+            throw KimaiError.server(status: http.statusCode, body: body)
+        }
+    }
+
     func ping() async throws {
-        _ = try await session.data(for: request("/api/ping"))
+        _ = try await send(request("/api/ping"))
     }
 
     func me() async throws -> UserMe {
-        let (data, _) = try await session.data(for: request("/api/users/me"))
+        let data = try await send(request("/api/users/me"))
         return try JSONDecoder.kimai.decode(UserMe.self, from: data)
     }
 
     func active() async throws -> [TimesheetEntity] {
-        let (data, _) = try await session.data(for: request("/api/timesheets/active"))
+        let data = try await send(request("/api/timesheets/active"))
         return try JSONDecoder.kimai.decode([TimesheetEntity].self, from: data)
     }
 
     func stop(id: Int) async throws -> TimesheetEntity {
-        let (data, _) = try await session.data(
-            for: request("/api/timesheets/\(id)/stop", method: "PATCH"))
+        let data = try await send(
+            request("/api/timesheets/\(id)/stop", method: "PATCH"))
         return try JSONDecoder.kimai.decode(TimesheetEntity.self, from: data)
     }
 
     func projects() async throws -> [ProjectEntity] {
         let items = [URLQueryItem(name: "visible", value: "1")]
-        let (data, _) = try await session.data(for: request("/api/projects", queryItems: items))
+        let data = try await send(request("/api/projects", queryItems: items))
         return try JSONDecoder.kimai.decode([ProjectEntity].self, from: data)
     }
 
     func activities() async throws -> [ActivityEntity] {
         let items = [URLQueryItem(name: "visible", value: "1")]
-        let (data, _) = try await session.data(for: request("/api/activities", queryItems: items))
+        let data = try await send(request("/api/activities", queryItems: items))
         return try JSONDecoder.kimai.decode([ActivityEntity].self, from: data)
     }
 
     func recent() async throws -> [TimesheetEntity] {
-        let (data, _) = try await session.data(for: request("/api/timesheets/recent"))
+        let data = try await send(request("/api/timesheets/recent"))
         return try JSONDecoder.kimai.decode([TimesheetEntity].self, from: data)
     }
 
@@ -92,8 +109,8 @@ struct KimaiClient {
         ]
         if let description, !description.isEmpty { payload["description"] = description }
         let body = try JSONSerialization.data(withJSONObject: payload)
-        let (data, _) = try await session.data(
-            for: request("/api/timesheets", method: "POST", body: body))
+        let data = try await send(
+            request("/api/timesheets", method: "POST", body: body))
         return try JSONDecoder.kimai.decode(TimesheetEntity.self, from: data)
     }
 
@@ -105,8 +122,8 @@ struct KimaiClient {
         ]
         if let description, !description.isEmpty { payload["description"] = description }
         let body = try JSONSerialization.data(withJSONObject: payload)
-        let (data, _) = try await session.data(
-            for: request("/api/timesheets", method: "POST", body: body))
+        let data = try await send(
+            request("/api/timesheets", method: "POST", body: body))
         return try JSONDecoder.kimai.decode(TimesheetEntity.self, from: data)
     }
 
@@ -118,8 +135,7 @@ struct KimaiClient {
             URLQueryItem(name: "order", value: "ASC"),
             URLQueryItem(name: "size", value: "1"),
         ]
-        let (data, _) = try await session.data(
-            for: request("/api/timesheets", queryItems: items))
+        let data = try await send(request("/api/timesheets", queryItems: items))
         let entries = try JSONDecoder.kimai.decode([TimesheetEntity].self, from: data)
         guard let first = entries.first else { return nil }
         return Calendar.current.component(.year, from: first.begin)
@@ -131,8 +147,8 @@ struct KimaiClient {
             URLQueryItem(name: "end", value: Self.kimaiLocalFormatter.string(from: end)),
         ]
         if let group { items.append(URLQueryItem(name: "group", value: String(group))) }
-        let (data, _) = try await session.data(
-            for: request("/api/public-holidays", queryItems: items))
+        let data = try await send(
+            request("/api/public-holidays", queryItems: items))
         return try JSONDecoder.kimai.decode([PublicHoliday].self, from: data)
     }
 
@@ -142,19 +158,41 @@ struct KimaiClient {
             URLQueryItem(name: "end", value: Self.kimaiLocalFormatter.string(from: end)),
             URLQueryItem(name: "status", value: status),
         ]
-        let (data, _) = try await session.data(
-            for: request("/api/absences", queryItems: items))
+        let data = try await send(
+            request("/api/absences", queryItems: items))
         return try JSONDecoder.kimai.decode([Absence].self, from: data)
     }
 
-    func timesheets(begin: Date, end: Date, size: Int = 500) async throws -> [TimesheetEntity] {
-        let items = [
-            URLQueryItem(name: "begin", value: Self.kimaiLocalFormatter.string(from: begin)),
-            URLQueryItem(name: "end", value: Self.kimaiLocalFormatter.string(from: end)),
-            URLQueryItem(name: "size", value: String(size)),
-        ]
-        let (data, _) = try await session.data(
-            for: request("/api/timesheets", queryItems: items))
-        return try JSONDecoder.kimai.decode([TimesheetEntity].self, from: data)
+    /// Fetch timesheets across a date range, paging until exhausted. Kimai caps
+    /// each page at the `pageSize` parameter (default 100); a single page-size
+    /// request would silently drop entries from heavy loggers or wide date
+    /// ranges, so we always loop until a short page comes back.
+    func timesheets(begin: Date,
+                    end: Date,
+                    pageSize: Int = 100) async throws -> [TimesheetEntity] {
+        var all: [TimesheetEntity] = []
+        var page = 1
+        while true {
+            let items = [
+                URLQueryItem(name: "begin", value: Self.kimaiLocalFormatter.string(from: begin)),
+                URLQueryItem(name: "end", value: Self.kimaiLocalFormatter.string(from: end)),
+                URLQueryItem(name: "size", value: String(pageSize)),
+                URLQueryItem(name: "page", value: String(page)),
+            ]
+            do {
+                let data = try await send(
+                    request("/api/timesheets", queryItems: items))
+                let chunk = try JSONDecoder.kimai.decode([TimesheetEntity].self, from: data)
+                all.append(contentsOf: chunk)
+                if chunk.count < pageSize { break }
+            } catch KimaiError.server(status: 404, _) {
+                // Kimai returns 404 instead of an empty page when you ask for
+                // a page past the end. Treat as "no more results".
+                break
+            }
+            page += 1
+            if page > 1000 { break } // safety stop
+        }
+        return all
     }
 }

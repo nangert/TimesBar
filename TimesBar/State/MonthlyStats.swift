@@ -31,8 +31,12 @@ enum MonthlyBalanceCalculator {
 
         // Cap at the start of tomorrow — i.e. today *is* counted as a
         // working day. The expected number is cumulative "through today".
-        let endOfWindow = min(nextMonthStart,
-                              max(monthStart, cal.startOfDay(for: now).addingTimeInterval(86_400)))
+        // Use calendar-day arithmetic, not `+86_400` seconds: DST transitions
+        // make days 23 or 25 hours long twice a year, which would otherwise
+        // push the cap into the prior or following day.
+        let startOfTomorrow = cal.date(byAdding: .day, value: 1, to: cal.startOfDay(for: now))
+            ?? cal.startOfDay(for: now)
+        let endOfWindow = min(nextMonthStart, max(monthStart, startOfTomorrow))
 
         // Build half-day-aware weight maps by start-of-day key
         var holidayWeights: [Date: Double] = [:]

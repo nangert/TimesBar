@@ -106,7 +106,7 @@ enum Importer {
 
         print("Range: \(format(queryStart)) to \(format(queryEnd))")
         print("Fetching existing Kimai timesheets in that range...")
-        let existing = try await client.timesheets(begin: queryStart, end: queryEnd, size: 500)
+        let existing = try await client.timesheets(begin: queryStart, end: queryEnd)
         let existingKeys = Set(existing.map { dedupKey(begin: $0.begin, projectId: $0.project) })
         print("Found \(existing.count) existing entries. CSV has \(rows.count) rows.")
         if dryRun { print("DRY RUN — no POSTs will be made.\n") } else { print("") }

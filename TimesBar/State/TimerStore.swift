@@ -189,14 +189,47 @@ final class TimerStore: ObservableObject {
 
     func loadUserMe() async {
         guard let client else { return }
-        userMe = try? await client.me()
+        userMe = await tryAuth { try await client.me() }
     }
 
     func detectFirstTimesheetYear() async {
         guard let client else { return }
-        if let year = try? await client.firstTimesheetYear(), year > 1970 {
-            detectedFirstTimesheetYear = year
+        if let year = await tryAuth({ try await client.firstTimesheetYear() }),
+           let y = year, y > 1970 {
+            detectedFirstTimesheetYear = y
         }
+    }
+
+    /// Run a client call, returning nil on any error. If Kimai answered 401/403
+    /// we tear down the in-memory auth state so the menu bar flips back to the
+    /// token form — the canonical cause is a revoked or expired API token.
+    private func tryAuth<T>(_ block: () async throws -> T) async -> T? {
+        do {
+            return try await block()
+        } catch KimaiError.unauthorized {
+            handleUnauthorized()
+            return nil
+        } catch {
+            return nil
+        }
+    }
+
+    /// Tear down live state when Kimai stops accepting the token. Mirrors
+    /// `signOut()` but keeps the Keychain entry — the user may want to paste
+    /// a fresh token and continue, and we don't know if the old one is just
+    /// temporarily revoked vs. permanently gone.
+    private func handleUnauthorized() {
+        guard isAuthenticated else { return }
+        NSLog("TimesBar: Kimai rejected the token (401/403); returning to sign-in")
+        pollTimer?.invalidate()
+        tickTimer?.invalidate()
+        client = nil
+        active = nil
+        weekHours = Array(repeating: 0, count: 7)
+        elapsedString = "--:--:--"
+        recent = []
+        loadingYear = nil
+        isAuthenticated = false
     }
 
     func authenticate(with token: String) async -> Bool {
@@ -206,7 +239,11 @@ final class TimerStore: ObservableObject {
         } catch {
             return false
         }
-        TokenStore().save(token)
+        guard TokenStore().save(token) else {
+            // Token was valid but Keychain rejected the write — don't claim
+            // authenticated, the next launch wouldn't find the token anyway.
+            return false
+        }
         client = candidate
         isAuthenticated = true
         await loadUserMe()
@@ -219,12 +256,10 @@ final class TimerStore: ObservableObject {
 
     func refreshDirectory() async {
         guard let client else { return }
-        async let projects = client.projects()
-        async let activities = client.activities()
-        if let p = try? await projects {
+        if let p = await tryAuth({ try await client.projects() }) {
             projectTitles = Dictionary(uniqueKeysWithValues: p.map { ($0.id, $0.displayTitle) })
         }
-        if let a = try? await activities {
+        if let a = await tryAuth({ try await client.activities() }) {
             activityTitles = Dictionary(uniqueKeysWithValues: a.map { ($0.id, $0.name) })
         }
     }
@@ -240,15 +275,19 @@ final class TimerStore: ObservableObject {
               let end = cal.date(from: DateComponents(year: year + 1, month: 1, day: 1))
         else { loadingYear = nil; return }
 
-        async let timesheets = client.timesheets(begin: begin, end: end, size: 500)
+        async let timesheets = client.timesheets(begin: begin, end: end)
         async let absences = client.absences(begin: begin, end: end, status: "approved")
         async let holidays = client.publicHolidays(begin: begin, end: end, group: publicHolidayGroupId)
 
-        let t = (try? await timesheets) ?? []
-        let a = (try? await absences) ?? []
-        let h = (try? await holidays) ?? []
-
-        yearlyData = YearlyData(year: year, timesheets: t, absences: a, publicHolidays: h)
+        do {
+            let (t, a, h) = try await (timesheets, absences, holidays)
+            yearlyData = YearlyData(year: year, timesheets: t, absences: a, publicHolidays: h)
+        } catch KimaiError.unauthorized {
+            handleUnauthorized()
+            yearlyData = nil
+        } catch {
+            yearlyData = nil
+        }
         loadingYear = nil
     }
 
@@ -263,7 +302,7 @@ final class TimerStore: ObservableObject {
         guard let begin = cal.date(from: DateComponents(year: vacationTrackingStartYear, month: 1, day: 1)),
               let end = cal.date(from: DateComponents(year: currentYear + 1, month: 1, day: 1))
         else { return }
-        if let entries = try? await client.absences(begin: begin, end: end, status: "approved") {
+        if let entries = await tryAuth({ try await client.absences(begin: begin, end: end, status: "approved") }) {
             absences = entries
         }
     }
@@ -280,6 +319,7 @@ final class TimerStore: ObservableObject {
         activityTitles = [:]
         absences = []
         yearlyData = nil
+        loadingYear = nil
         detectedFirstTimesheetYear = nil
         userMe = nil
         pollTimer?.invalidate()
@@ -288,13 +328,13 @@ final class TimerStore: ObservableObject {
 
     func stop() async {
         guard let client, let id = active?.id else { return }
-        _ = try? await client.stop(id: id)
+        _ = await tryAuth { try await client.stop(id: id) }
         await refresh()
     }
 
     func refresh() async {
         guard let client else { return }
-        active = (try? await client.active())?.first
+        active = (await tryAuth { try await client.active() })?.first
         await refreshWeek()
         await refreshRecent()
         tickElapsed()
@@ -302,7 +342,7 @@ final class TimerStore: ObservableObject {
 
     func refreshRecent() async {
         guard let client else { return }
-        if let entries = try? await client.recent() {
+        if let entries = await tryAuth({ try await client.recent() }) {
             recent = Array(entries.prefix(5))
         }
     }
@@ -318,6 +358,9 @@ final class TimerStore: ObservableObject {
             _ = try await client.start(project: project, activity: activity, description: description)
             await refresh()
             return true
+        } catch KimaiError.unauthorized {
+            handleUnauthorized()
+            return false
         } catch {
             return false
         }
@@ -331,7 +374,7 @@ final class TimerStore: ObservableObject {
         let comps = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
         guard let weekStart = cal.date(from: comps) else { return }
         let weekEnd = cal.date(byAdding: .day, value: 7, to: weekStart)!
-        if let entries = try? await client.timesheets(begin: weekStart, end: weekEnd) {
+        if let entries = await tryAuth({ try await client.timesheets(begin: weekStart, end: weekEnd) }) {
             weekHours = Self.weekHours(entries: entries, weekStart: weekStart, calendar: cal, now: now)
         }
     }
