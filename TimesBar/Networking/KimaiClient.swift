@@ -85,6 +85,21 @@ struct KimaiClient {
         return try JSONDecoder.kimai.decode(TimesheetEntity.self, from: data)
     }
 
+    /// Calendar year of the user's earliest timesheet, or nil if there are none.
+    /// Uses `orderBy=begin&order=ASC&size=1` for a one-row response.
+    func firstTimesheetYear() async throws -> Int? {
+        let items = [
+            URLQueryItem(name: "orderBy", value: "begin"),
+            URLQueryItem(name: "order", value: "ASC"),
+            URLQueryItem(name: "size", value: "1"),
+        ]
+        let (data, _) = try await session.data(
+            for: request("/api/timesheets", queryItems: items))
+        let entries = try JSONDecoder.kimai.decode([TimesheetEntity].self, from: data)
+        guard let first = entries.first else { return nil }
+        return Calendar.current.component(.year, from: first.begin)
+    }
+
     func publicHolidays(begin: Date, end: Date) async throws -> [PublicHoliday] {
         let items = [
             URLQueryItem(name: "begin", value: Self.kimaiLocalFormatter.string(from: begin)),

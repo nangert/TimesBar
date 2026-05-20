@@ -111,49 +111,40 @@ struct TimeOffView: View {
     }
 
     private var budgetEditor: some View {
-        let currentYear = Calendar.current.component(.year, from: Date())
-        return VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 6) {
             SectionHeader(text: "Budget")
-            Text("Kimai's API doesn't expose your contract, so set these once. TimesBar then fetches every approved holiday from Jan 1 of \"Since\" onwards.")
+            HStack(alignment: .firstTextBaseline) {
+                Text("Annual")
+                    .font(.system(size: 11))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 70, alignment: .leading)
+                Spacer()
+                Stepper(
+                    value: Binding(
+                        get: { store.vacationBudgetDays },
+                        set: { store.vacationBudgetDays = $0 }
+                    ),
+                    in: 0...60
+                ) {
+                    Text("\(store.vacationBudgetDays) days")
+                        .font(.system(size: 11, design: .monospaced))
+                }
+                .controlSize(.mini)
+            }
+            Text(detectedFootnote)
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            stepperRow(
-                label: "Annual",
-                value: Binding(
-                    get: { store.vacationBudgetDays },
-                    set: { store.vacationBudgetDays = $0 }
-                ),
-                range: 0...60,
-                suffix: "days"
-            )
-            stepperRow(
-                label: "Since",
-                value: Binding(
-                    get: { store.vacationTrackingStartYear },
-                    set: { store.vacationTrackingStartYear = $0 }
-                ),
-                range: 2010...currentYear,
-                suffix: nil
-            )
         }
     }
 
-    private func stepperRow(label: String,
-                             value: Binding<Int>,
-                             range: ClosedRange<Int>,
-                             suffix: String?) -> some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(label)
-                .font(.system(size: 11))
-                .foregroundStyle(.secondary)
-                .frame(width: 70, alignment: .leading)
-            Spacer()
-            Stepper(value: value, in: range) {
-                Text(suffix.map { "\(value.wrappedValue) \($0)" } ?? "\(value.wrappedValue)")
-                    .font(.system(size: 11, design: .monospaced))
-            }
-            .controlSize(.mini)
+    private var detectedFootnote: String {
+        if let detected = store.detectedFirstTimesheetYear {
+            let years = store.vacationYearsAccrued
+            let plural = years == 1 ? "year" : "years"
+            return "Counting from \(detected) — your earliest timesheet (\(years) \(plural))."
+        } else {
+            return "Counting from the current year. Once you log timesheets across multiple years, TimesBar picks up the earliest one automatically."
         }
     }
 

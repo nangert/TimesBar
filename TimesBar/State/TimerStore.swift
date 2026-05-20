@@ -23,7 +23,10 @@ final class TimerStore: ObservableObject {
     @Published var loadingYear: Int?
 
     private static let vacationBudgetDaysKey = "vacationBudgetDays"
-    private static let vacationTrackingStartYearKey = "vacationTrackingStartYear"
+
+    /// Auto-detected year of the user's earliest timesheet. Populated by
+    /// `detectFirstTimesheetYear()` on bootstrap. Drives `vacationTrackingStartYear`.
+    @Published var detectedFirstTimesheetYear: Int?
 
     /// Annual vacation budget. The Kimai API doesn't expose the
     /// `holidaysPerYear` contract field on this install, so the user
@@ -40,18 +43,11 @@ final class TimerStore: ObservableObject {
         }
     }
 
-    /// First calendar year to count toward the running balance — defaults
-    /// to the current year (which means no carry-over).
+    /// First year we count toward the running balance. Auto-detected from
+    /// the earliest timesheet; falls back to the current year if nothing's
+    /// logged yet.
     var vacationTrackingStartYear: Int {
-        get {
-            let stored = UserDefaults.standard.integer(forKey: Self.vacationTrackingStartYearKey)
-            return stored > 0 ? stored : Calendar.current.component(.year, from: Date())
-        }
-        set {
-            objectWillChange.send()
-            UserDefaults.standard.set(newValue, forKey: Self.vacationTrackingStartYearKey)
-            Task { await refreshAbsences() }
-        }
+        detectedFirstTimesheetYear ?? Calendar.current.component(.year, from: Date())
     }
 
     /// Number of calendar years between the tracking start and today,
@@ -130,12 +126,20 @@ final class TimerStore: ObservableObject {
             isAuthenticated = true
             Task {
                 await refreshDirectory()
+                await detectFirstTimesheetYear()
                 await refreshAbsences()
                 await refresh()
             }
             startTimers()
         } else {
             isAuthenticated = false
+        }
+    }
+
+    func detectFirstTimesheetYear() async {
+        guard let client else { return }
+        if let year = try? await client.firstTimesheetYear(), year > 1970 {
+            detectedFirstTimesheetYear = year
         }
     }
 
@@ -150,6 +154,7 @@ final class TimerStore: ObservableObject {
         client = candidate
         isAuthenticated = true
         await refreshDirectory()
+        await detectFirstTimesheetYear()
         await refresh()
         startTimers()
         return true
@@ -218,6 +223,7 @@ final class TimerStore: ObservableObject {
         activityTitles = [:]
         absences = []
         yearlyData = nil
+        detectedFirstTimesheetYear = nil
         pollTimer?.invalidate()
         tickTimer?.invalidate()
     }
