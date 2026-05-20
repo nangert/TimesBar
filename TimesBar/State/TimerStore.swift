@@ -13,10 +13,10 @@ final class TimerStore: ObservableObject {
     @Published var absences: [Absence] = []
 
     private static let vacationBudgetDaysKey = "vacationBudgetDays"
-    private static let vacationCarryoverDaysKey = "vacationCarryoverDays"
+    private static let vacationTrackingStartYearKey = "vacationTrackingStartYear"
 
-    /// This year's contractual vacation budget. The Kimai API doesn't expose
-    /// the `holidaysPerYear` contract field on this install, so the user
+    /// Annual vacation budget. The Kimai API doesn't expose the
+    /// `holidaysPerYear` contract field on this install, so the user
     /// configures it once via the Time-off page.
     var vacationBudgetDays: Int {
         get {
@@ -26,21 +26,34 @@ final class TimerStore: ObservableObject {
         set {
             objectWillChange.send()
             UserDefaults.standard.set(newValue, forKey: Self.vacationBudgetDaysKey)
+            Task { await refreshAbsences() }
         }
     }
 
-    /// Days carried over from previous years. Defaults to 0.
-    var vacationCarryoverDays: Int {
-        get { UserDefaults.standard.integer(forKey: Self.vacationCarryoverDaysKey) }
+    /// First calendar year to count toward the running balance — defaults
+    /// to the current year (which means no carry-over).
+    var vacationTrackingStartYear: Int {
+        get {
+            let stored = UserDefaults.standard.integer(forKey: Self.vacationTrackingStartYearKey)
+            return stored > 0 ? stored : Calendar.current.component(.year, from: Date())
+        }
         set {
             objectWillChange.send()
-            UserDefaults.standard.set(newValue, forKey: Self.vacationCarryoverDaysKey)
+            UserDefaults.standard.set(newValue, forKey: Self.vacationTrackingStartYearKey)
+            Task { await refreshAbsences() }
         }
     }
 
-    /// Total pool of vacation days for the current year, carry-over included.
+    /// Number of calendar years between the tracking start and today,
+    /// inclusive — i.e. how many annual allotments have accrued.
+    var vacationYearsAccrued: Int {
+        let currentYear = Calendar.current.component(.year, from: Date())
+        return max(currentYear - vacationTrackingStartYear + 1, 1)
+    }
+
+    /// Total vacation days accrued since the tracking start year.
     var vacationTotalAvailable: Int {
-        vacationBudgetDays + vacationCarryoverDays
+        vacationBudgetDays * vacationYearsAccrued
     }
 
     var vacationRemainingDays: Double {
@@ -144,17 +157,18 @@ final class TimerStore: ObservableObject {
         }
     }
 
-    /// Fetch this calendar year's approved absences. Cheap-ish but rarely changes,
-    /// so we call it on bootstrap and when the Time-off panel is opened, not on
-    /// the 10s poll loop.
+    /// Fetch approved absences from the tracking start year through the end
+    /// of the current year. Rarely changes, so we call it on bootstrap, on
+    /// entering the Time-off panel, and when the budget/year settings change.
     func refreshAbsences() async {
         guard let client else { return }
         var cal = Calendar(identifier: .iso8601)
         cal.timeZone = .current
-        let now = Date()
-        let yearStart = cal.date(from: cal.dateComponents([.year], from: now)) ?? now
-        let yearEnd = cal.date(byAdding: .year, value: 1, to: yearStart) ?? now
-        if let entries = try? await client.absences(begin: yearStart, end: yearEnd, status: "approved") {
+        let currentYear = cal.component(.year, from: Date())
+        guard let begin = cal.date(from: DateComponents(year: vacationTrackingStartYear, month: 1, day: 1)),
+              let end = cal.date(from: DateComponents(year: currentYear + 1, month: 1, day: 1))
+        else { return }
+        if let entries = try? await client.absences(begin: begin, end: end, status: "approved") {
             absences = entries
         }
     }

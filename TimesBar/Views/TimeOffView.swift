@@ -59,9 +59,11 @@ struct TimeOffView: View {
                 Text("\(formatDays(store.vacationRemainingDays)) days remaining")
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
-                if store.vacationCarryoverDays > 0 {
-                    Text("·").foregroundStyle(.secondary).font(.system(size: 10))
-                    Text("\(store.vacationBudgetDays) + \(store.vacationCarryoverDays) carried")
+                if store.vacationYearsAccrued > 1 {
+                    Text("·")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                    Text("\(store.vacationYearsAccrued) yrs × \(store.vacationBudgetDays) since \(store.vacationTrackingStartYear)")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                 }
@@ -109,9 +111,10 @@ struct TimeOffView: View {
     }
 
     private var budgetEditor: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        let currentYear = Calendar.current.component(.year, from: Date())
+        return VStack(alignment: .leading, spacing: 6) {
             SectionHeader(text: "Budget")
-            Text("Kimai's API doesn't expose your contract settings, so set these once.")
+            Text("Kimai's API doesn't expose your contract, so set these once. TimesBar then fetches every approved holiday from Jan 1 of \"Since\" onwards.")
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -121,22 +124,25 @@ struct TimeOffView: View {
                     get: { store.vacationBudgetDays },
                     set: { store.vacationBudgetDays = $0 }
                 ),
-                range: 0...60
+                range: 0...60,
+                suffix: "days"
             )
             stepperRow(
-                label: "Carryover",
+                label: "Since",
                 value: Binding(
-                    get: { store.vacationCarryoverDays },
-                    set: { store.vacationCarryoverDays = $0 }
+                    get: { store.vacationTrackingStartYear },
+                    set: { store.vacationTrackingStartYear = $0 }
                 ),
-                range: 0...60
+                range: 2010...currentYear,
+                suffix: nil
             )
         }
     }
 
     private func stepperRow(label: String,
                              value: Binding<Int>,
-                             range: ClosedRange<Int>) -> some View {
+                             range: ClosedRange<Int>,
+                             suffix: String?) -> some View {
         HStack(alignment: .firstTextBaseline) {
             Text(label)
                 .font(.system(size: 11))
@@ -144,7 +150,7 @@ struct TimeOffView: View {
                 .frame(width: 70, alignment: .leading)
             Spacer()
             Stepper(value: value, in: range) {
-                Text("\(value.wrappedValue) days")
+                Text(suffix.map { "\(value.wrappedValue) \($0)" } ?? "\(value.wrappedValue)")
                     .font(.system(size: 11, design: .monospaced))
             }
             .controlSize(.mini)
