@@ -14,8 +14,8 @@ enum CSVParser {
         let raw = try String(contentsOf: url, encoding: .utf8)
         // Strip BOM if present
         let stripped = raw.hasPrefix("\u{FEFF}") ? String(raw.dropFirst()) : raw
-        let lines = stripped.split(whereSeparator: { $0 == "\n" || $0 == "\r" })
-            .map(String.init)
+        // Character.isNewline handles \n, \r, and the \r\n grapheme cluster.
+        let lines = stripped.split(whereSeparator: \.isNewline).map(String.init)
         guard lines.count > 1 else { return [] }
 
         var rows: [TimeBuzzerRow] = []
