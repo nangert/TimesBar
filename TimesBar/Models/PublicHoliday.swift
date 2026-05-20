@@ -17,4 +17,12 @@ struct PublicHoliday: Decodable, Identifiable, Equatable, Sendable {
         name = (try? c.decode(String.self, forKey: .name)) ?? ""
         halfDay = (try? c.decode(Bool.self, forKey: .halfDay)) ?? false
     }
+
+    // Memberwise initializer for tests.
+    init(id: Int, date: Date, name: String, halfDay: Bool) {
+        self.id = id
+        self.date = date
+        self.name = name
+        self.halfDay = halfDay
+    }
 }

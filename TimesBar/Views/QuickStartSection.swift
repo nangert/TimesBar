@@ -11,6 +11,7 @@ struct QuickStartItem: Identifiable, Equatable {
 
 struct QuickStartSection: View {
     let items: [QuickStartItem]
+    let errorMessage: String?
     let onStart: (QuickStartItem) -> Void
     let onStartNew: () -> Void
 
@@ -38,6 +39,12 @@ struct QuickStartSection: View {
                         QuickStartRow(item: item) { onStart(item) }
                     }
                 }
+            }
+            if let errorMessage {
+                Text(errorMessage)
+                    .font(.system(size: 11))
+                    .foregroundStyle(.red)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }

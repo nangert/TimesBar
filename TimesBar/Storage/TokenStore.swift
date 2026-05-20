@@ -16,12 +16,22 @@ struct TokenStore {
         ]
     }
 
-    func save(_ token: String) {
+    /// Returns `true` if Keychain accepted the write. Callers should NOT
+    /// report "saved" to the user without checking — silent failures here
+    /// previously left the app in a state where it claimed the token was
+    /// stored but read() returned nil on next launch.
+    @discardableResult
+    func save(_ token: String) -> Bool {
         let data = Data(token.utf8)
         var query = baseQuery()
         SecItemDelete(query as CFDictionary)
         query[kSecValueData as String] = data
-        SecItemAdd(query as CFDictionary, nil)
+        let status = SecItemAdd(query as CFDictionary, nil)
+        if status != errSecSuccess {
+            NSLog("TimesBar: Keychain save failed (OSStatus \(status))")
+            return false
+        }
+        return true
     }
 
     func read() -> String? {

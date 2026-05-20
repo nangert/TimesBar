@@ -204,8 +204,12 @@ struct MonthlyBalanceView: View {
     }
 
     private func formatH(_ hours: Double) -> String {
-        let total = Int(hours.rounded())
-        return "\(total)h"
+        // Round to the nearest 0.5h so the balance chip can show "+2.5h"
+        // rather than rounding a half-hour overage to either 0 or 1.
+        let rounded = (hours * 2).rounded() / 2
+        return rounded.truncatingRemainder(dividingBy: 1) == 0
+            ? "\(Int(rounded))h"
+            : String(format: "%.1fh", rounded)
     }
 
     private func isCurrentMonth(_ month: Int) -> Bool {

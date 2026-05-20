@@ -2,10 +2,15 @@ import SwiftUI
 
 struct MenuBarView: View {
     @EnvironmentObject var store: TimerStore
-    @State private var showingSettings = false
-    @State private var showingStartForm = false
-    @State private var showingTimeOff = false
-    @State private var showingMonthlyBalance = false
+
+    /// Which panel is mounted in the dropdown. Replaces a row of Bool flags
+    /// that previously had to be manually reset on every transition — easy to
+    /// forget one and end up with overlapping panels.
+    private enum Route {
+        case main, settings, startForm, timeOff, monthlyBalance
+    }
+    @State private var route: Route = .main
+    @State private var quickStartError: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -13,39 +18,30 @@ struct MenuBarView: View {
                 TokenSetupForm(onCancel: nil) {
                     // saved successfully — drop back to the normal dropdown
                 }
-            } else if showingSettings {
-                TokenSetupForm(
-                    onCancel: { showingSettings = false },
-                    onSaved: { showingSettings = false }
-                )
-            } else if showingTimeOff {
-                TimeOffView(onClose: { showingTimeOff = false })
-            } else if showingMonthlyBalance {
-                MonthlyBalanceView(onClose: { showingMonthlyBalance = false })
             } else {
-                authenticatedContent
+                switch route {
+                case .settings:
+                    TokenSetupForm(
+                        onCancel: { route = .main },
+                        onSaved: { route = .main }
+                    )
+                case .timeOff:
+                    TimeOffView(onClose: { route = .main })
+                case .monthlyBalance:
+                    MonthlyBalanceView(onClose: { route = .main })
+                case .main, .startForm:
+                    authenticatedContent
+                }
             }
             Divider()
             FooterRow(
-                onSettings: { showingSettings.toggle() },
-                onTimeOff: {
-                    showingTimeOff = true
-                    showingSettings = false
-                    showingStartForm = false
-                    showingMonthlyBalance = false
-                },
-                onMonthlyBalance: {
-                    showingMonthlyBalance = true
-                    showingSettings = false
-                    showingStartForm = false
-                    showingTimeOff = false
-                },
+                onSettings: { route = (route == .settings ? .main : .settings) },
+                onTimeOff: { route = .timeOff },
+                onMonthlyBalance: { route = .monthlyBalance },
                 onSignOut: {
                     store.signOut()
-                    showingSettings = false
-                    showingStartForm = false
-                    showingTimeOff = false
-                    showingMonthlyBalance = false
+                    route = .main
+                    quickStartError = nil
                 }
             )
         }
@@ -69,23 +65,33 @@ struct MenuBarView: View {
 
         if store.active == nil {
             Divider()
-            if showingStartForm {
+            if route == .startForm {
                 StartTimerForm(
-                    onCancel: { showingStartForm = false },
-                    onStarted: { showingStartForm = false }
+                    onCancel: { route = .main },
+                    onStarted: { route = .main }
                 )
                 .environmentObject(store)
             } else {
                 QuickStartSection(
                     items: quickStartItems,
+                    errorMessage: quickStartError,
                     onStart: { item in
+                        quickStartError = nil
                         Task {
-                            await store.start(project: item.projectId,
-                                              activity: item.activityId,
-                                              description: item.description)
+                            let ok = await store.startCheckingResult(
+                                project: item.projectId,
+                                activity: item.activityId,
+                                description: item.description
+                            )
+                            if !ok {
+                                quickStartError = "Kimai rejected the request. The activity may not belong to that project anymore."
+                            }
                         }
                     },
-                    onStartNew: { showingStartForm = true }
+                    onStartNew: {
+                        quickStartError = nil
+                        route = .startForm
+                    }
                 )
             }
         }

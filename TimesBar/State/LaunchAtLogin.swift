@@ -8,13 +8,6 @@ enum LaunchAtLogin {
         SMAppService.mainApp.status == .enabled
     }
 
-    /// True if the toggle reflects an approval-pending state. macOS may
-    /// require the user to click "Allow" in System Settings → Login Items
-    /// the first time a sandboxed app registers itself.
-    static var requiresApproval: Bool {
-        SMAppService.mainApp.status == .requiresApproval
-    }
-
     @discardableResult
     static func set(_ enabled: Bool) -> Bool {
         do {
