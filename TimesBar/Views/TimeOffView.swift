@@ -111,25 +111,14 @@ struct TimeOffView: View {
     }
 
     private var budgetEditor: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            SectionHeader(text: "Budget")
-            HStack(alignment: .firstTextBaseline) {
-                Text("Annual")
-                    .font(.system(size: 11))
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 4) {
+                Image(systemName: "checkmark.seal")
+                    .font(.system(size: 10))
                     .foregroundStyle(.secondary)
-                    .frame(width: 70, alignment: .leading)
-                Spacer()
-                Stepper(
-                    value: Binding(
-                        get: { store.vacationBudgetDays },
-                        set: { store.vacationBudgetDays = $0 }
-                    ),
-                    in: 0...60
-                ) {
-                    Text("\(store.vacationBudgetDays) days")
-                        .font(.system(size: 11, design: .monospaced))
-                }
-                .controlSize(.mini)
+                Text("\(store.vacationBudgetDays) days/year · from your Kimai profile")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
             }
             Text(detectedFootnote)
                 .font(.system(size: 10))

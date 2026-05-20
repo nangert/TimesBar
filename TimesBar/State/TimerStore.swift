@@ -11,6 +11,7 @@ final class TimerStore: ObservableObject {
     @Published var projectTitles: [Int: String] = [:]
     @Published var activityTitles: [Int: String] = [:]
     @Published var absences: [Absence] = []
+    @Published var userMe: UserMe?
 
     // Monthly-balance cache: full set of raw data per year, keyed by year.
     struct YearlyData: Equatable {
@@ -22,44 +23,25 @@ final class TimerStore: ObservableObject {
     @Published var yearlyData: YearlyData?
     @Published var loadingYear: Int?
 
-    private static let vacationBudgetDaysKey = "vacationBudgetDays"
-    private static let hoursPerWeekKey = "hoursPerWeek"
-
-    /// Contractual working hours per week. Drives the Monthly balance page's
-    /// "expected" math (hoursPerWeek ÷ 5 = hours per working day, Mon–Fri).
-    /// Kimai's API doesn't expose this on the bundle your install carries,
-    /// so it's set once via the Monthly balance page.
-    var hoursPerWeek: Double {
-        get {
-            let stored = UserDefaults.standard.double(forKey: Self.hoursPerWeekKey)
-            return stored > 0 ? stored : 40.0
-        }
-        set {
-            objectWillChange.send()
-            UserDefaults.standard.set(newValue, forKey: Self.hoursPerWeekKey)
-        }
-    }
+    /// Contractual working hours per week. Sourced from `/api/users/me` →
+    /// preference `hours_per_week` (stored in Kimai as seconds). Falls back
+    /// to 40 if the preference hasn't loaded yet.
+    var hoursPerWeek: Double { userMe?.hoursPerWeek ?? 40.0 }
 
     var hoursPerWorkingDay: Double { hoursPerWeek / 5.0 }
+
+    /// Public-holiday group ID assigned to the user — drives which holidays
+    /// `/api/public-holidays` returns. Without this, Kimai returns its default
+    /// group which is usually empty.
+    var publicHolidayGroupId: Int? { userMe?.publicHolidayGroupId }
 
     /// Auto-detected year of the user's earliest timesheet. Populated by
     /// `detectFirstTimesheetYear()` on bootstrap. Drives `vacationTrackingStartYear`.
     @Published var detectedFirstTimesheetYear: Int?
 
-    /// Annual vacation budget. The Kimai API doesn't expose the
-    /// `holidaysPerYear` contract field on this install, so the user
-    /// configures it once via the Time-off page.
-    var vacationBudgetDays: Int {
-        get {
-            let stored = UserDefaults.standard.integer(forKey: Self.vacationBudgetDaysKey)
-            return stored > 0 ? stored : 25
-        }
-        set {
-            objectWillChange.send()
-            UserDefaults.standard.set(newValue, forKey: Self.vacationBudgetDaysKey)
-            Task { await refreshAbsences() }
-        }
-    }
+    /// Annual vacation budget — sourced from `/api/users/me` → preference
+    /// `holidays`. Falls back to 25 if not loaded yet.
+    var vacationBudgetDays: Int { userMe?.holidaysPerYear ?? 25 }
 
     /// First year we count toward the running balance. Auto-detected from
     /// the earliest timesheet; falls back to the current year if nothing's
@@ -143,6 +125,7 @@ final class TimerStore: ObservableObject {
             client = KimaiClient(token: token)
             isAuthenticated = true
             Task {
+                await loadUserMe()
                 await refreshDirectory()
                 await detectFirstTimesheetYear()
                 await refreshAbsences()
@@ -152,6 +135,11 @@ final class TimerStore: ObservableObject {
         } else {
             isAuthenticated = false
         }
+    }
+
+    func loadUserMe() async {
+        guard let client else { return }
+        userMe = try? await client.me()
     }
 
     func detectFirstTimesheetYear() async {
@@ -171,6 +159,7 @@ final class TimerStore: ObservableObject {
         TokenStore().save(token)
         client = candidate
         isAuthenticated = true
+        await loadUserMe()
         await refreshDirectory()
         await detectFirstTimesheetYear()
         await refresh()
@@ -203,7 +192,7 @@ final class TimerStore: ObservableObject {
 
         async let timesheets = client.timesheets(begin: begin, end: end, size: 500)
         async let absences = client.absences(begin: begin, end: end, status: "approved")
-        async let holidays = client.publicHolidays(begin: begin, end: end)
+        async let holidays = client.publicHolidays(begin: begin, end: end, group: publicHolidayGroupId)
 
         let t = (try? await timesheets) ?? []
         let a = (try? await absences) ?? []
@@ -242,6 +231,7 @@ final class TimerStore: ObservableObject {
         absences = []
         yearlyData = nil
         detectedFirstTimesheetYear = nil
+        userMe = nil
         pollTimer?.invalidate()
         tickTimer?.invalidate()
     }

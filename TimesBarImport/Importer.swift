@@ -6,13 +6,28 @@ enum Importer {
         let activity: Int
     }
 
+    /// Dumps the raw /api/users/me JSON so we can see preferences (work hours, etc).
+    static func dumpUser(client: KimaiClient, token: String) async throws {
+        var req = URLRequest(url: client.baseURL.appendingPathComponent("/api/users/me"))
+        req.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        let (data, _) = try await URLSession.shared.data(for: req)
+        // Pretty-print
+        if let obj = try? JSONSerialization.jsonObject(with: data),
+           let pretty = try? JSONSerialization.data(withJSONObject: obj, options: [.prettyPrinted, .sortedKeys]),
+           let str = String(data: pretty, encoding: .utf8) {
+            print(str)
+        } else {
+            print(String(data: data, encoding: .utf8) ?? "")
+        }
+    }
+
     static func listHolidays(year: Int, client: KimaiClient) async throws {
         var cal = Calendar(identifier: .iso8601)
         cal.timeZone = .current
         guard let begin = cal.date(from: DateComponents(year: year, month: 1, day: 1)),
               let end = cal.date(from: DateComponents(year: year + 1, month: 1, day: 1))
         else { return }
-        let holidays = try await client.publicHolidays(begin: begin, end: end)
+        let holidays = try await client.publicHolidays(begin: begin, end: end, group: 2)
         let df = DateFormatter()
         df.dateFormat = "yyyy-MM-dd"
         df.timeZone = .current

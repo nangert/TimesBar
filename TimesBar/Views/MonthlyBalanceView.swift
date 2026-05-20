@@ -96,8 +96,7 @@ struct MonthlyBalanceView: View {
                 monthsList(stats)
                 Divider()
                 yearTotalRow(stats: stats)
-                Divider()
-                hoursPerWeekEditor
+                hoursPerWeekInfo
             }
         }
     }
@@ -158,24 +157,14 @@ struct MonthlyBalanceView: View {
         .padding(.vertical, 2)
     }
 
-    private var hoursPerWeekEditor: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text("Hours per week")
-                .font(.system(size: 11))
+    private var hoursPerWeekInfo: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "checkmark.seal")
+                .font(.system(size: 10))
                 .foregroundStyle(.secondary)
-            Spacer()
-            Stepper(
-                value: Binding(
-                    get: { store.hoursPerWeek },
-                    set: { store.hoursPerWeek = $0 }
-                ),
-                in: 0...80,
-                step: 0.5
-            ) {
-                Text(formatHoursPerWeek(store.hoursPerWeek))
-                    .font(.system(size: 11, design: .monospaced))
-            }
-            .controlSize(.mini)
+            Text("\(formatHoursPerWeek(store.hoursPerWeek)) per week · from your Kimai profile")
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
         }
     }
 

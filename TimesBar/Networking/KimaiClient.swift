@@ -44,6 +44,11 @@ struct KimaiClient {
         _ = try await session.data(for: request("/api/ping"))
     }
 
+    func me() async throws -> UserMe {
+        let (data, _) = try await session.data(for: request("/api/users/me"))
+        return try JSONDecoder.kimai.decode(UserMe.self, from: data)
+    }
+
     func active() async throws -> [TimesheetEntity] {
         let (data, _) = try await session.data(for: request("/api/timesheets/active"))
         return try JSONDecoder.kimai.decode([TimesheetEntity].self, from: data)
@@ -120,11 +125,12 @@ struct KimaiClient {
         return Calendar.current.component(.year, from: first.begin)
     }
 
-    func publicHolidays(begin: Date, end: Date) async throws -> [PublicHoliday] {
-        let items = [
+    func publicHolidays(begin: Date, end: Date, group: Int? = nil) async throws -> [PublicHoliday] {
+        var items = [
             URLQueryItem(name: "begin", value: Self.kimaiLocalFormatter.string(from: begin)),
             URLQueryItem(name: "end", value: Self.kimaiLocalFormatter.string(from: end)),
         ]
+        if let group { items.append(URLQueryItem(name: "group", value: String(group))) }
         let (data, _) = try await session.data(
             for: request("/api/public-holidays", queryItems: items))
         return try JSONDecoder.kimai.decode([PublicHoliday].self, from: data)
