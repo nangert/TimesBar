@@ -29,11 +29,10 @@ enum MonthlyBalanceCalculator {
             return MonthlyStats(month: month, expectedHours: 0, actualHours: 0)
         }
 
-        // Cap at the start of today (exclusive). Past months iterate fully;
-        // the current month only counts days that are *completed* — today
-        // itself doesn't add to the expected pool yet. That avoids
-        // penalising people mid-day when they haven't worked 8h yet.
-        let endOfWindow = min(nextMonthStart, max(monthStart, cal.startOfDay(for: now)))
+        // Cap at the start of tomorrow — i.e. today *is* counted as a
+        // working day. The expected number is cumulative "through today".
+        let endOfWindow = min(nextMonthStart,
+                              max(monthStart, cal.startOfDay(for: now).addingTimeInterval(86_400)))
 
         // Build half-day-aware weight maps by start-of-day key
         var holidayWeights: [Date: Double] = [:]
