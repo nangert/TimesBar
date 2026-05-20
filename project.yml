@@ -44,6 +44,21 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: bar.times.TimesBarTests
         GENERATE_INFOPLIST_FILE: YES
+  timesbar-import:
+    type: tool
+    platform: macOS
+    sources:
+      - path: TimesBarImport
+      - path: TimesBar/Models
+      - path: TimesBar/Networking
+      - path: TimesBar/Storage
+    settings:
+      base:
+        PRODUCT_NAME: timesbar-import
+        PRODUCT_BUNDLE_IDENTIFIER: bar.times.TimesBarImport
+        GENERATE_INFOPLIST_FILE: YES
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: "-"
 schemes:
   TimesBar:
     build:
@@ -53,5 +68,11 @@ schemes:
     test:
       targets:
         - TimesBarTests
+    run:
+      config: Debug
+  timesbar-import:
+    build:
+      targets:
+        timesbar-import: all
     run:
       config: Debug

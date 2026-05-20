@@ -50,6 +50,17 @@ release: zip  ## Publish a tagged GitHub release with the zipped .app
 		--title "TimesBar v$(VERSION)" \
 		--notes-file $(RELEASE_NOTES)
 
+import-tool: project  ## Build the timesbar-import CLI (Release)
+	xcodebuild -project $(APP_NAME).xcodeproj \
+		-scheme timesbar-import \
+		-configuration Release \
+		-derivedDataPath $(BUILD_DIR)/derived \
+		build | tail -5
+	@cp $(BUILD_DIR)/derived/Build/Products/Release/timesbar-import $(BUILD_DIR)/
+	@echo ""
+	@echo "Built $(BUILD_DIR)/timesbar-import"
+	@echo "Run with: $(BUILD_DIR)/timesbar-import --help"
+
 test: project  ## Run the unit-test suite
 	xcodebuild -project $(APP_NAME).xcodeproj \
 		-scheme $(APP_NAME) \

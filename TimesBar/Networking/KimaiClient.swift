@@ -72,6 +72,26 @@ struct KimaiClient {
         return try JSONDecoder.kimai.decode([TimesheetEntity].self, from: data)
     }
 
+    /// Create a stopped timesheet entry with explicit begin + end. Used by the
+    /// import tool for backfilling historical CSV data.
+    func createTimesheet(begin: Date,
+                         end: Date,
+                         project: Int,
+                         activity: Int,
+                         description: String?) async throws -> TimesheetEntity {
+        var payload: [String: Any] = [
+            "project": project,
+            "activity": activity,
+            "begin": Self.kimaiLocalFormatter.string(from: begin),
+            "end": Self.kimaiLocalFormatter.string(from: end),
+        ]
+        if let description, !description.isEmpty { payload["description"] = description }
+        let body = try JSONSerialization.data(withJSONObject: payload)
+        let (data, _) = try await session.data(
+            for: request("/api/timesheets", method: "POST", body: body))
+        return try JSONDecoder.kimai.decode(TimesheetEntity.self, from: data)
+    }
+
     func start(project: Int, activity: Int, description: String?) async throws -> TimesheetEntity {
         var payload: [String: Any] = [
             "project": project,
