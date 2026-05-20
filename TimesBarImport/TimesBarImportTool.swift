@@ -24,6 +24,7 @@ struct TimesBarImportTool {
         var token: String?
         var dryRun = false
         var listProjects = false
+        var listHolidaysYear: Int?
 
         while !args.isEmpty {
             let arg = args.removeFirst()
@@ -33,6 +34,8 @@ struct TimesBarImportTool {
             case "--token":    token = args.popFirstOrExit(flag: arg)
             case "--dry-run":  dryRun = true
             case "--list-projects": listProjects = true
+            case "--list-holidays":
+                listHolidaysYear = Int(args.popFirstOrExit(flag: arg))
             default:
                 FileHandle.standardError.write(Data("Unknown argument: \(arg)\n".utf8))
                 exit(1)
@@ -54,6 +57,10 @@ struct TimesBarImportTool {
 
         if listProjects {
             try await Importer.listProjects(client: client)
+            return
+        }
+        if let year = listHolidaysYear {
+            try await Importer.listHolidays(year: year, client: client)
             return
         }
 

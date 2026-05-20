@@ -6,6 +6,27 @@ enum Importer {
         let activity: Int
     }
 
+    static func listHolidays(year: Int, client: KimaiClient) async throws {
+        var cal = Calendar(identifier: .iso8601)
+        cal.timeZone = .current
+        guard let begin = cal.date(from: DateComponents(year: year, month: 1, day: 1)),
+              let end = cal.date(from: DateComponents(year: year + 1, month: 1, day: 1))
+        else { return }
+        let holidays = try await client.publicHolidays(begin: begin, end: end)
+        let df = DateFormatter()
+        df.dateFormat = "yyyy-MM-dd"
+        df.timeZone = .current
+        print("Public holidays returned by Kimai for \(year):")
+        if holidays.isEmpty {
+            print("  (none)")
+        } else {
+            for h in holidays.sorted(by: { $0.date < $1.date }) {
+                let half = h.halfDay ? " [half-day]" : ""
+                print("  \(df.string(from: h.date))  \(h.name)\(half)")
+            }
+        }
+    }
+
     static func listProjects(client: KimaiClient) async throws {
         let projects = try await client.projects()
         let activities = try await client.activities()
