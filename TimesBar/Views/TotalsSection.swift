@@ -2,7 +2,7 @@ import SwiftUI
 
 struct TotalsSection: View {
     let weekHours: [Double]
-    var dailyTargetHours: Double = 8
+    let dailyTargetHours: Double
 
     private var todayIndex: Int {
         let cal = Calendar(identifier: .iso8601)

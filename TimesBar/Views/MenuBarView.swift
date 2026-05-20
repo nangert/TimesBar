@@ -90,7 +90,8 @@ struct MenuBarView: View {
             }
         }
         Divider()
-        TotalsSection(weekHours: store.weekHours)
+        TotalsSection(weekHours: store.weekHours,
+                      dailyTargetHours: store.hoursPerWorkingDay)
     }
 
     private var quickStartItems: [QuickStartItem] {
