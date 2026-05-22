@@ -15,6 +15,9 @@ struct QuickStartSection: View {
     let errorMessage: String?
     let onStart: (QuickStartItem) -> Void
     let onStartNew: () -> Void
+    var onEdit: (QuickStartItem) -> Void = { _ in }
+    var onDuplicate: (QuickStartItem) -> Void = { _ in }
+    var onDelete: (QuickStartItem) -> Void = { _ in }
     var colorForProject: (Int) -> Color = { id in Color.forProject(id: id, hex: nil) }
 
     var body: some View {
@@ -38,10 +41,14 @@ struct QuickStartSection: View {
             } else {
                 VStack(spacing: 2) {
                     ForEach(items) { item in
-                        QuickStartRow(item: item,
-                                      projectColor: colorForProject(item.projectId)) {
-                            onStart(item)
-                        }
+                        QuickStartRow(
+                            item: item,
+                            projectColor: colorForProject(item.projectId),
+                            onTap: { onStart(item) },
+                            onEdit: { onEdit(item) },
+                            onDuplicate: { onDuplicate(item) },
+                            onDelete: { onDelete(item) }
+                        )
                     }
                 }
             }
@@ -59,7 +66,11 @@ private struct QuickStartRow: View {
     let item: QuickStartItem
     let projectColor: Color
     let onTap: () -> Void
+    var onEdit: () -> Void = {}
+    var onDuplicate: () -> Void = {}
+    var onDelete: () -> Void = {}
     @State private var hover = false
+    @State private var showDeleteConfirm = false
 
     var body: some View {
         Button(action: onTap) {
@@ -91,6 +102,22 @@ private struct QuickStartRow: View {
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
+        .contextMenu {
+            Button("Edit…") { onEdit() }
+            Button("Duplicate") { onDuplicate() }
+            Divider()
+            Button("Delete…", role: .destructive) { showDeleteConfirm = true }
+        }
+        .confirmationDialog(
+            "Delete this entry?",
+            isPresented: $showDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Delete", role: .destructive) { onDelete() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This entry will be permanently removed from Kimai.")
+        }
     }
 
     private var tagRow: some View {

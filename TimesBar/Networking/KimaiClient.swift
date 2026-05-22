@@ -138,6 +138,21 @@ struct KimaiClient {
         return try JSONDecoder.kimai.decode(TimesheetEntity.self, from: data)
     }
 
+    /// Delete a completed timesheet entry. Kimai returns 204 No Content on
+    /// success. Any non-2xx response is surfaced as a `KimaiError`.
+    func deleteTimesheet(id: Int) async throws {
+        _ = try await send(
+            request("/api/timesheets/\(id)", method: "DELETE"))
+    }
+
+    /// Duplicate a timesheet entry via Kimai's dedicated endpoint. The server
+    /// creates a new stopped entry with the same fields and returns it.
+    func duplicateTimesheet(id: Int) async throws -> TimesheetEntity {
+        let data = try await send(
+            request("/api/timesheets/\(id)/duplicate", method: "POST"))
+        return try JSONDecoder.kimai.decode(TimesheetEntity.self, from: data)
+    }
+
     /// Patch a timesheet — used by the menu bar's edit-active-timer form. Any
     /// nil argument is omitted from the payload, so this works for "just shift
     /// the begin time" as well as full edits. Kimai's PATCH accepts the same

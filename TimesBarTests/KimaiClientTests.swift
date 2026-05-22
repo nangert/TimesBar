@@ -406,6 +406,40 @@ struct KimaiClientTests {
         #expect(calls == 2)
     }
 
+    // MARK: - Delete / Duplicate timesheets
+
+    @Test func deleteTimesheetSendsDeleteToCorrectPath() async throws {
+        nonisolated(unsafe) var captured: URLRequest?
+        let session = mockSession { req in
+            captured = req
+            let response = HTTPURLResponse(url: req.url!, statusCode: 204, httpVersion: nil, headerFields: nil)!
+            return (response, Data())
+        }
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
+        try await client.deleteTimesheet(id: 42)
+
+        #expect(captured?.httpMethod == "DELETE")
+        #expect(captured?.url?.path == "/api/timesheets/42")
+    }
+
+    @Test func duplicateTimesheetSendsPostToCorrectPath() async throws {
+        nonisolated(unsafe) var captured: URLRequest?
+        let session = mockSession { req in
+            captured = req
+            let body = """
+            {"id":99,"project":1,"activity":2,"begin":"2026-05-18T09:00:00+0200","end":"2026-05-18T10:00:00+0200","description":"copy"}
+            """
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data(body.utf8))
+        }
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
+        let duplicated = try await client.duplicateTimesheet(id: 42)
+
+        #expect(captured?.httpMethod == "POST")
+        #expect(captured?.url?.path == "/api/timesheets/42/duplicate")
+        #expect(duplicated.id == 99)
+    }
+
     // MARK: - Error handling
 
     @Test func unauthorizedResponseThrowsTypedError() async {

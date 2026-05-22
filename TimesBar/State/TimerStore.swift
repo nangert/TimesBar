@@ -537,6 +537,69 @@ final class TimerStore: ObservableObject {
         }
     }
 
+    /// PATCH any completed timesheet by ID. Used by `EditTimesheetForm`. Any nil
+    /// argument is left unchanged on the server.
+    @discardableResult
+    func updateTimesheet(id: Int,
+                         project: Int? = nil,
+                         activity: Int? = nil,
+                         begin: Date? = nil,
+                         end: Date? = nil,
+                         description: String? = nil,
+                         tags: [String]? = nil) async -> Bool {
+        guard let client else { return false }
+        do {
+            _ = try await client.updateTimesheet(
+                id: id,
+                project: project,
+                activity: activity,
+                begin: begin,
+                end: end,
+                description: description,
+                tags: tags)
+            await refresh()
+            return true
+        } catch KimaiError.unauthorized {
+            handleUnauthorized()
+            return false
+        } catch {
+            return false
+        }
+    }
+
+    /// DELETE a timesheet entry by ID. Refreshes recent + week after success.
+    @discardableResult
+    func deleteTimesheet(id: Int) async -> Bool {
+        guard let client else { return false }
+        do {
+            try await client.deleteTimesheet(id: id)
+            await refresh()
+            return true
+        } catch KimaiError.unauthorized {
+            handleUnauthorized()
+            return false
+        } catch {
+            return false
+        }
+    }
+
+    /// Duplicate a timesheet entry via Kimai's POST /duplicate endpoint.
+    /// Refreshes after success so the new entry appears in the recent list.
+    @discardableResult
+    func duplicateTimesheet(id: Int) async -> Bool {
+        guard let client else { return false }
+        do {
+            _ = try await client.duplicateTimesheet(id: id)
+            await refresh()
+            return true
+        } catch KimaiError.unauthorized {
+            handleUnauthorized()
+            return false
+        } catch {
+            return false
+        }
+    }
+
     /// PATCH the currently running timer. Any nil argument is left unchanged.
     /// Returns false if there is no active timer or Kimai rejects the edit
     /// (e.g. the activity does not belong to the new project).
