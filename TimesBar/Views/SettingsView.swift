@@ -21,6 +21,10 @@ struct SettingsView: View {
             Divider()
 
             serverSection
+
+            Divider()
+
+            behaviorSection
         }
         .onAppear {
             urlText = prefs.baseURL.absoluteString
@@ -61,6 +65,44 @@ struct SettingsView: View {
                 .tint(.kimaiGreen)
                 .controlSize(.small)
                 .disabled(urlText.trimmingCharacters(in: .whitespaces).isEmpty || isSavingURL)
+            }
+        }
+    }
+
+    private var behaviorSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            SectionHeader(text: "Behavior")
+
+            Toggle("Auto-stop timer at end of day", isOn: $prefs.autoStopEnabled)
+                .toggleStyle(.switch)
+                .font(.system(size: 12))
+
+            if prefs.autoStopEnabled {
+                FormRow(label: "Stop at") {
+                    DatePicker(
+                        "",
+                        selection: Binding(
+                            get: {
+                                let comps = prefs.autoStopTime
+                                var cal = Calendar.current
+                                cal.timeZone = .current
+                                return cal.date(bySettingHour: comps.hour ?? 19,
+                                               minute: comps.minute ?? 0,
+                                               second: 0,
+                                               of: Date()) ?? Date()
+                            },
+                            set: { date in
+                                let cal = Calendar.current
+                                let hour   = cal.component(.hour,   from: date)
+                                let minute = cal.component(.minute, from: date)
+                                prefs.autoStopTime = DateComponents(hour: hour, minute: minute)
+                            }
+                        ),
+                        displayedComponents: .hourAndMinute
+                    )
+                    .labelsHidden()
+                    .datePickerStyle(.field)
+                }
             }
         }
     }

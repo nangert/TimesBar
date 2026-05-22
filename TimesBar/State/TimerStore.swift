@@ -31,6 +31,15 @@ final class TimerStore: ObservableObject {
     /// bootstrap and used as autocomplete suggestions in the start/edit forms.
     @Published var knownTags: [String] = []
 
+    // MARK: - Auto-stop toast
+
+    struct AutoStopToast: Equatable {
+        let stoppedAt: Date
+        let lastEntryId: Int
+    }
+
+    @Published var autoStopToast: AutoStopToast?
+
     // MARK: - Sleep reconciliation
 
     /// Metadata captured at willSleep so we can detect an externally-stopped
@@ -265,6 +274,34 @@ final class TimerStore: ObservableObject {
 
     // MARK: - Pure helpers (unit-tested)
 
+    /// Returns true when a running timer should be automatically stopped.
+    ///
+    /// - Parameters:
+    ///   - now: The current wall-clock time.
+    ///   - runningSince: When the active timer was started.
+    ///   - autoStopTime: Hour + minute configured by the user.
+    ///   - calendar: Calendar used for date arithmetic (injectable for tests).
+    ///
+    /// Note: midnight wrap (e.g. stop time = 02:00) is not handled in v1 —
+    /// only same-day stop times (00:00–23:59) are supported.
+    nonisolated static func shouldAutoStop(now: Date,
+                                           runningSince: Date,
+                                           autoStopTime: DateComponents,
+                                           calendar: Calendar = .current) -> Bool {
+        guard let hour   = autoStopTime.hour,
+              let minute = autoStopTime.minute else { return false }
+
+        let startOfToday = calendar.startOfDay(for: now)
+        guard let stopTime = calendar.date(bySettingHour: hour,
+                                           minute: minute,
+                                           second: 0,
+                                           of: startOfToday) else { return false }
+
+        // The timer must have been started before today's configured stop time,
+        // and the current time must be at or after it.
+        return runningSince < stopTime && now >= stopTime
+    }
+
     /// Returns the 0-based weekday index (Monday=0 … Sunday=6) for `now`
     /// within the ISO week that starts on `weekStart`.
     nonisolated static func todayIndex(weekStart: Date, now: Date, calendar: Calendar) -> Int {
@@ -318,6 +355,7 @@ final class TimerStore: ObservableObject {
 
     private var pollTimer: Timer?
     private var tickTimer: Timer?
+    private var autoStopTimer: Timer?
     private var client: KimaiClient?
     /// Timestamp of the last `refreshWeek()` call — used by `tickElapsed` to
     /// compute the live delta for the currently running timer without polling.
@@ -386,6 +424,7 @@ final class TimerStore: ObservableObject {
         NSLog("TimesBar: Kimai rejected the token (401/403); returning to sign-in")
         pollTimer?.invalidate()
         tickTimer?.invalidate()
+        autoStopTimer?.invalidate()
         client = nil
         active = nil
         weekHours = Array(repeating: 0, count: 7)
@@ -545,6 +584,7 @@ final class TimerStore: ObservableObject {
         userMe = nil
         pollTimer?.invalidate()
         tickTimer?.invalidate()
+        autoStopTimer?.invalidate()
     }
 
     func stop() async {
@@ -766,6 +806,7 @@ final class TimerStore: ObservableObject {
     private func startTimers() {
         pollTimer?.invalidate()
         tickTimer?.invalidate()
+        autoStopTimer?.invalidate()
 
         // Schedule on `.common` so the timers continue to fire while the MenuBarExtra
         // dropdown is open (the run loop is in `.eventTracking` then, and a timer
@@ -776,10 +817,53 @@ final class TimerStore: ObservableObject {
         let tick = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tickElapsed() }
         }
+        let autoStop = Timer(timeInterval: 60, repeats: true) { [weak self] _ in
+            Task { @MainActor in await self?.checkAutoStop() }
+        }
         RunLoop.main.add(poll, forMode: .common)
         RunLoop.main.add(tick, forMode: .common)
+        RunLoop.main.add(autoStop, forMode: .common)
         pollTimer = poll
         tickTimer = tick
+        autoStopTimer = autoStop
+    }
+
+    private func checkAutoStop() async {
+        let prefs = UserPreferences.shared
+        guard prefs.autoStopEnabled,
+              let entry = active,
+              let client = client,
+              let h = prefs.autoStopTime.hour,
+              let m = prefs.autoStopTime.minute else { return }
+        let cal = Calendar.current
+        let startOfToday = cal.startOfDay(for: Date())
+        guard let stopTime = cal.date(bySettingHour: h, minute: m, second: 0, of: startOfToday) else { return }
+        let now = Date()
+        guard Self.shouldAutoStop(now: now, runningSince: entry.begin, autoStopTime: prefs.autoStopTime) else { return }
+
+        let entryId = entry.id
+        // Record exact configured stop time, not "now".
+        _ = await tryAuth { try await client.updateTimesheet(id: entryId, end: stopTime) }
+        await refresh()
+        autoStopToast = AutoStopToast(stoppedAt: stopTime, lastEntryId: entryId)
+
+        // Auto-dismiss the toast after 30 seconds if the user hasn't acted.
+        Task {
+            try? await Task.sleep(nanoseconds: 30_000_000_000)
+            if autoStopToast?.lastEntryId == entryId {
+                autoStopToast = nil
+            }
+        }
+    }
+
+    /// Resume the auto-stopped entry by restarting it via Kimai's /restart
+    /// endpoint (copies description + tags). Clears the toast on success.
+    func undoAutoStop() {
+        guard let toast = autoStopToast else { return }
+        autoStopToast = nil
+        Task {
+            _ = await resumeCheckingResult(timesheetId: toast.lastEntryId)
+        }
     }
 
     private func tickElapsed() {

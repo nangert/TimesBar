@@ -25,6 +25,11 @@ struct MenuBarView: View {
                         .environmentObject(store)
                     Divider()
                 }
+                if let toast = store.autoStopToast {
+                    AutoStopToastView(toast: toast)
+                        .environmentObject(store)
+                    Divider()
+                }
                 switch route {
                 case .settings:
                     SettingsView(
