@@ -8,7 +8,6 @@ struct TimesBarApp: App {
         MenuBarExtra {
             MenuBarView()
                 .environmentObject(store)
-                .frame(width: 320)
                 .onAppear { store.bootstrap() }
         } label: {
             MenuBarLabel()

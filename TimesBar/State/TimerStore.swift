@@ -13,6 +13,12 @@ final class TimerStore: ObservableObject {
     @Published var absences: [Absence] = []
     @Published var userMe: UserMe?
 
+    /// Timesheets within ±1 day of a date the user is editing — used by the
+    /// past-entry / edit-active forms to overlay existing entries on the
+    /// TimeRangeBar so the user can see what's already logged. Cleared when
+    /// the forms close.
+    @Published var nearbyEntries: [TimesheetEntity] = []
+
     // Monthly-balance cache: full set of raw data per year, keyed by year.
     struct YearlyData: Equatable {
         let year: Int
@@ -385,6 +391,25 @@ final class TimerStore: ObservableObject {
         tickElapsed()
     }
 
+    /// Fetch timesheets covering the given day ±1 day. Populates
+    /// `nearbyEntries` so the TimeRangeBar can visualize what's already
+    /// logged in the window. ±1 day covers midnight-crossing 12h strips.
+    func refreshNearbyEntries(around day: Date) async {
+        guard let client else { return }
+        var cal = Calendar.current
+        cal.timeZone = .current
+        let startOfDay = cal.startOfDay(for: day)
+        guard let begin = cal.date(byAdding: .day, value: -1, to: startOfDay),
+              let end = cal.date(byAdding: .day, value: 2, to: startOfDay) else { return }
+        if let entries = await tryAuth({ try await client.timesheets(begin: begin, end: end) }) {
+            nearbyEntries = entries
+        }
+    }
+
+    func clearNearbyEntries() {
+        nearbyEntries = []
+    }
+
     func refreshRecent() async {
         guard let client else { return }
         if let entries = await tryAuth({ try await client.recent() }) {
@@ -401,6 +426,61 @@ final class TimerStore: ObservableObject {
         guard let client else { return false }
         do {
             _ = try await client.start(project: project, activity: activity, description: description)
+            await refresh()
+            return true
+        } catch KimaiError.unauthorized {
+            handleUnauthorized()
+            return false
+        } catch {
+            return false
+        }
+    }
+
+    /// Log a timesheet entry with an explicit begin. If `end` is nil the entry
+    /// is created in the running state — used by the "log past entry" toggle
+    /// in StartTimerForm to backdate a freshly started timer. Kimai rejects a
+    /// second concurrent active entry, so this path mirrors the existing
+    /// invariant: only one running timer at a time.
+    @discardableResult
+    func logEntry(project: Int,
+                  activity: Int,
+                  begin: Date,
+                  end: Date?,
+                  description: String?) async -> Bool {
+        guard let client else { return false }
+        do {
+            _ = try await client.createTimesheet(
+                begin: begin,
+                end: end,
+                project: project,
+                activity: activity,
+                description: description)
+            await refresh()
+            return true
+        } catch KimaiError.unauthorized {
+            handleUnauthorized()
+            return false
+        } catch {
+            return false
+        }
+    }
+
+    /// PATCH the currently running timer. Any nil argument is left unchanged.
+    /// Returns false if there is no active timer or Kimai rejects the edit
+    /// (e.g. the activity does not belong to the new project).
+    @discardableResult
+    func updateActiveTimer(begin: Date? = nil,
+                           project: Int? = nil,
+                           activity: Int? = nil,
+                           description: String? = nil) async -> Bool {
+        guard let client, let id = active?.id else { return false }
+        do {
+            _ = try await client.updateTimesheet(
+                id: id,
+                project: project,
+                activity: activity,
+                begin: begin,
+                description: description)
             await refresh()
             return true
         } catch KimaiError.unauthorized {

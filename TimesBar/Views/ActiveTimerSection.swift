@@ -5,10 +5,22 @@ struct ActiveTimerSection: View {
     let description: String?
     let elapsed: String
     let onStop: () -> Void
+    let onEdit: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            SectionHeader(text: "Active")
+            HStack(alignment: .firstTextBaseline) {
+                SectionHeader(text: "Active")
+                Spacer()
+                Button(action: onEdit) {
+                    Image(systemName: "pencil")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .padding(2)
+                }
+                .buttonStyle(.plain)
+                .help("Edit running timer")
+            }
             HStack(spacing: 8) {
                 Circle()
                     .fill(Color.kimaiGreen)
