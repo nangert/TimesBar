@@ -115,7 +115,8 @@ struct StartTimerForm: View {
                         mode: hasEnd ? .range : .beginOnly,
                         begin: $begin,
                         end: $end,
-                        existingEntries: store.nearbyEntries
+                        existingEntries: store.nearbyEntries,
+                        colorForProject: { store.projectColor(for: $0) }
                     )
 
                     HStack(spacing: 16) {

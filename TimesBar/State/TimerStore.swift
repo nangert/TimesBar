@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import SwiftUI
 
 @MainActor
 final class TimerStore: ObservableObject {
@@ -10,7 +11,13 @@ final class TimerStore: ObservableObject {
     @Published var isAuthenticated: Bool = false
     @Published var recent: [TimesheetEntity] = []
     @Published var projectTitles: [Int: String] = [:]
+    @Published var projectColors: [Int: String?] = [:]
     @Published var activityTitles: [Int: String] = [:]
+
+    /// Per-day breakdown of hours by project for the current ISO week.
+    /// Index 0 = Monday … 6 = Sunday. Each element is an array of
+    /// (projectId, hours) pairs for that day, sorted descending by duration.
+    @Published var weekProjectHours: [[(projectId: Int, hours: Double)]] = Array(repeating: [], count: 7)
     @Published var absences: [Absence] = []
     @Published var userMe: UserMe?
 
@@ -144,6 +151,10 @@ final class TimerStore: ObservableObject {
         projectTitles[id] ?? "Project #\(id)"
     }
 
+    func projectColor(for id: Int) -> Color {
+        Color.forProject(id: id, hex: projectColors[id] ?? nil)
+    }
+
     func activityTitle(for id: Int) -> String {
         activityTitles[id] ?? "Activity #\(id)"
     }
@@ -175,6 +186,28 @@ final class TimerStore: ObservableObject {
             buckets[day] += elapsed / 3600.0
         }
         return buckets
+    }
+
+    /// Per-day breakdown of hours by project for the current ISO week.
+    /// Returns an array of 7 elements (Monday=0 … Sunday=6); each element is a
+    /// list of `(projectId, hours)` pairs sorted descending by hours.
+    nonisolated static func weekProjectHours(entries: [TimesheetEntity],
+                                             weekStart: Date,
+                                             calendar: Calendar,
+                                             now: Date = Date()) -> [[(projectId: Int, hours: Double)]] {
+        var buckets: [[Int: Double]] = Array(repeating: [:], count: 7)
+        for entry in entries {
+            let stop = entry.end ?? now
+            let elapsed = stop.timeIntervalSince(entry.begin)
+            guard elapsed > 0 else { continue }
+            let day = calendar.dateComponents([.day], from: weekStart, to: entry.begin).day ?? 0
+            guard day >= 0, day < 7 else { continue }
+            buckets[day][entry.project, default: 0] += elapsed / 3600.0
+        }
+        return buckets.map { dict in
+            dict.map { (projectId: $0.key, hours: $0.value) }
+                .sorted { $0.hours > $1.hours }
+        }
     }
 
     // MARK: - Live state
@@ -251,6 +284,7 @@ final class TimerStore: ObservableObject {
         client = nil
         active = nil
         weekHours = Array(repeating: 0, count: 7)
+        weekProjectHours = Array(repeating: [], count: 7)
         elapsedString = "--:--:--"
         recent = []
         loadingYear = nil
@@ -283,6 +317,7 @@ final class TimerStore: ObservableObject {
         guard let client else { return }
         if let p = await tryAuth({ try await client.projects() }) {
             projectTitles = Dictionary(uniqueKeysWithValues: p.map { ($0.id, $0.displayTitle) })
+            projectColors = Dictionary(uniqueKeysWithValues: p.map { ($0.id, $0.color) })
         }
         if let a = await tryAuth({ try await client.activities() }) {
             activityTitles = Dictionary(uniqueKeysWithValues: a.map { ($0.id, $0.name) })
@@ -382,10 +417,12 @@ final class TimerStore: ObservableObject {
         client = nil
         active = nil
         weekHours = Array(repeating: 0, count: 7)
+        weekProjectHours = Array(repeating: [], count: 7)
         elapsedString = "--:--:--"
         isAuthenticated = false
         recent = []
         projectTitles = [:]
+        projectColors = [:]
         activityTitles = [:]
         absences = []
         yearlyData = nil
@@ -540,6 +577,7 @@ final class TimerStore: ObservableObject {
         let weekEnd = cal.date(byAdding: .day, value: 7, to: weekStart)!
         if let entries = await tryAuth({ try await client.timesheets(begin: weekStart, end: weekEnd) }) {
             weekHours = Self.weekHours(entries: entries, weekStart: weekStart, calendar: cal, now: now)
+            weekProjectHours = Self.weekProjectHours(entries: entries, weekStart: weekStart, calendar: cal, now: now)
             weekHoursRefreshedAt = now
         }
     }

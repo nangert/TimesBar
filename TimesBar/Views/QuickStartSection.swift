@@ -14,6 +14,7 @@ struct QuickStartSection: View {
     let errorMessage: String?
     let onStart: (QuickStartItem) -> Void
     let onStartNew: () -> Void
+    var colorForProject: (Int) -> Color = { id in Color.forProject(id: id, hex: nil) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -36,7 +37,10 @@ struct QuickStartSection: View {
             } else {
                 VStack(spacing: 2) {
                     ForEach(items) { item in
-                        QuickStartRow(item: item) { onStart(item) }
+                        QuickStartRow(item: item,
+                                      projectColor: colorForProject(item.projectId)) {
+                            onStart(item)
+                        }
                     }
                 }
             }
@@ -52,15 +56,16 @@ struct QuickStartSection: View {
 
 private struct QuickStartRow: View {
     let item: QuickStartItem
+    let projectColor: Color
     let onTap: () -> Void
     @State private var hover = false
 
     var body: some View {
         Button(action: onTap) {
             HStack(spacing: 8) {
-                Image(systemName: "arrow.clockwise")
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.secondary)
+                Circle()
+                    .fill(projectColor)
+                    .frame(width: 6, height: 6)
                 Text(item.title)
                     .font(.system(size: 13))
                     .lineLimit(1)

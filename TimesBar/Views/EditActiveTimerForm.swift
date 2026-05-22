@@ -76,7 +76,8 @@ struct EditActiveTimerForm: View {
                     begin: $begin,
                     end: $dummyEnd,
                     existingEntries: store.nearbyEntries,
-                    excludeEntryId: store.active?.id
+                    excludeEntryId: store.active?.id,
+                    colorForProject: { store.projectColor(for: $0) }
                 )
 
                 HStack(spacing: 16) {

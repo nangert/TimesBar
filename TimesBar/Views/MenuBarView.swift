@@ -77,6 +77,7 @@ struct MenuBarView: View {
                 projectTitle: store.projectTitle(for: timesheet.project),
                 description: timesheet.description,
                 elapsed: store.elapsedString,
+                projectColor: store.projectColor(for: timesheet.project),
                 onStop: { Task { await store.stop() } },
                 onEdit: { route = .editActiveTimer }
             )
@@ -114,14 +115,17 @@ struct MenuBarView: View {
                     onStartNew: {
                         quickStartError = nil
                         route = .startForm
-                    }
+                    },
+                    colorForProject: { store.projectColor(for: $0) }
                 )
             }
         }
         Divider()
         TotalsSection(weekHours: store.weekHours,
                       todayHours: store.todayHours,
-                      dailyTargetHours: store.hoursPerWorkingDay)
+                      dailyTargetHours: store.hoursPerWorkingDay,
+                      weekProjectHours: store.weekProjectHours,
+                      colorForProject: { store.projectColor(for: $0) })
     }
 
     private var quickStartItems: [QuickStartItem] {

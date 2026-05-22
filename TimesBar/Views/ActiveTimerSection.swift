@@ -4,6 +4,7 @@ struct ActiveTimerSection: View {
     let projectTitle: String
     let description: String?
     let elapsed: String
+    var projectColor: Color = .kimaiGreen
     let onStop: () -> Void
     let onEdit: () -> Void
 
@@ -23,7 +24,7 @@ struct ActiveTimerSection: View {
             }
             HStack(spacing: 8) {
                 Circle()
-                    .fill(Color.kimaiGreen)
+                    .fill(projectColor)
                     .frame(width: 7, height: 7)
                 Text(projectTitle)
                     .font(.system(size: 13, weight: .medium))
