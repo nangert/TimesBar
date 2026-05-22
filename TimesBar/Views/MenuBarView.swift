@@ -139,7 +139,8 @@ struct MenuBarView: View {
                     activityId: entry.activity,
                     description: entry.description,
                     title: store.projectTitle(for: entry.project),
-                    durationSeconds: (entry.end ?? Date()).timeIntervalSince(entry.begin)
+                    durationSeconds: (entry.end ?? Date()).timeIntervalSince(entry.begin),
+                    tags: entry.tags
                 )
             }
     }

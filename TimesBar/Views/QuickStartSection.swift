@@ -7,6 +7,7 @@ struct QuickStartItem: Identifiable, Equatable {
     let description: String?
     let title: String
     let durationSeconds: TimeInterval
+    var tags: [String] = []
 }
 
 struct QuickStartSection: View {
@@ -66,9 +67,14 @@ private struct QuickStartRow: View {
                 Circle()
                     .fill(projectColor)
                     .frame(width: 6, height: 6)
-                Text(item.title)
-                    .font(.system(size: 13))
-                    .lineLimit(1)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.title)
+                        .font(.system(size: 13))
+                        .lineLimit(1)
+                    if !item.tags.isEmpty {
+                        tagRow
+                    }
+                }
                 Spacer(minLength: 8)
                 Text(formatHoursAndMinutes(seconds: item.durationSeconds))
                     .font(.system(size: 11, design: .monospaced))
@@ -85,5 +91,26 @@ private struct QuickStartRow: View {
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
+    }
+
+    private var tagRow: some View {
+        let visible = Array(item.tags.prefix(3))
+        let overflow = item.tags.count - visible.count
+        return HStack(spacing: 3) {
+            ForEach(visible, id: \.self) { tag in
+                Text(tag)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 1)
+                    .padding(.horizontal, 4)
+                    .background(Capsule().fill(Color.primary.opacity(0.07)))
+                    .lineLimit(1)
+            }
+            if overflow > 0 {
+                Text("+\(overflow)")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }

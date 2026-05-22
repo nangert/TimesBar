@@ -104,6 +104,13 @@ struct KimaiClient {
         return try JSONDecoder.kimai.decode([TimesheetEntity].self, from: data)
     }
 
+    /// Fetch all tag names known to this Kimai instance. The `/api/tags` endpoint
+    /// returns a JSON array of plain strings — one entry per tag.
+    func tags() async throws -> [String] {
+        let data = try await send(request("/api/tags"))
+        return try JSONDecoder.kimai.decode([String].self, from: data)
+    }
+
     /// Create a timesheet entry with explicit begin and optional end. When `end`
     /// is nil the entry is created in the running state — Kimai then treats it
     /// as the user's active timer (it will reject a second concurrent active
@@ -113,7 +120,8 @@ struct KimaiClient {
                          end: Date?,
                          project: Int,
                          activity: Int,
-                         description: String?) async throws -> TimesheetEntity {
+                         description: String?,
+                         tags: [String]? = nil) async throws -> TimesheetEntity {
         var payload: [String: Any] = [
             "project": project,
             "activity": activity,
@@ -123,6 +131,7 @@ struct KimaiClient {
             payload["end"] = Self.kimaiLocalFormatter.string(from: end)
         }
         if let description, !description.isEmpty { payload["description"] = description }
+        if let tags, !tags.isEmpty { payload["tags"] = tags.joined(separator: ",") }
         let body = try JSONSerialization.data(withJSONObject: payload)
         let data = try await send(
             request("/api/timesheets", method: "POST", body: body))
@@ -138,26 +147,30 @@ struct KimaiClient {
                          activity: Int? = nil,
                          begin: Date? = nil,
                          end: Date? = nil,
-                         description: String? = nil) async throws -> TimesheetEntity {
+                         description: String? = nil,
+                         tags: [String]? = nil) async throws -> TimesheetEntity {
         var payload: [String: Any] = [:]
         if let project { payload["project"] = project }
         if let activity { payload["activity"] = activity }
         if let begin { payload["begin"] = Self.kimaiLocalFormatter.string(from: begin) }
         if let end { payload["end"] = Self.kimaiLocalFormatter.string(from: end) }
         if let description { payload["description"] = description }
+        // Send an empty string to clear all tags; send a CSV list to set them.
+        if let tags { payload["tags"] = tags.isEmpty ? "" : tags.joined(separator: ",") }
         let body = try JSONSerialization.data(withJSONObject: payload)
         let data = try await send(
             request("/api/timesheets/\(id)", method: "PATCH", body: body))
         return try JSONDecoder.kimai.decode(TimesheetEntity.self, from: data)
     }
 
-    func start(project: Int, activity: Int, description: String?) async throws -> TimesheetEntity {
+    func start(project: Int, activity: Int, description: String?, tags: [String]? = nil) async throws -> TimesheetEntity {
         var payload: [String: Any] = [
             "project": project,
             "activity": activity,
             "begin": Self.kimaiLocalFormatter.string(from: Date()),
         ]
         if let description, !description.isEmpty { payload["description"] = description }
+        if let tags, !tags.isEmpty { payload["tags"] = tags.joined(separator: ",") }
         let body = try JSONSerialization.data(withJSONObject: payload)
         let data = try await send(
             request("/api/timesheets", method: "POST", body: body))

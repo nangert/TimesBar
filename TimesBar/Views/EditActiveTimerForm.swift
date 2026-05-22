@@ -12,6 +12,7 @@ struct EditActiveTimerForm: View {
     @State private var projectId: Int?
     @State private var activityId: Int?
     @State private var description: String = ""
+    @State private var tags: [String] = []
     @State private var begin: Date = Date()
     /// Dummy binding for TimeRangeBar's `end` parameter in `.beginOnly` mode.
     /// Never read — the bar derives the visual end from "now" itself.
@@ -22,6 +23,7 @@ struct EditActiveTimerForm: View {
     @State private var initialProjectId: Int = -1
     @State private var initialActivityId: Int = -1
     @State private var initialDescription: String = ""
+    @State private var initialTags: [String] = []
     @State private var initialBegin: Date = Date()
 
     var body: some View {
@@ -65,6 +67,10 @@ struct EditActiveTimerForm: View {
                     .textFieldStyle(.plain)
                     .font(.system(size: 12))
                     .pillFieldStyle()
+            }
+
+            FormRow(label: "Tags") {
+                TagsField(tags: $tags, suggestions: store.knownTags)
             }
 
             Divider()
@@ -133,10 +139,12 @@ struct EditActiveTimerForm: View {
         projectId = active.project
         activityId = active.activity
         description = active.description ?? ""
+        tags = active.tags
         begin = active.begin
         initialProjectId = active.project
         initialActivityId = active.activity
         initialDescription = active.description ?? ""
+        initialTags = active.tags
         initialBegin = active.begin
     }
 
@@ -179,6 +187,7 @@ struct EditActiveTimerForm: View {
             || activityId != initialActivityId
             || description.trimmingCharacters(in: .whitespacesAndNewlines)
                 != initialDescription.trimmingCharacters(in: .whitespacesAndNewlines)
+            || tags.sorted() != initialTags.sorted()
             || abs(begin.timeIntervalSince(initialBegin)) > 1
     }
 
@@ -192,13 +201,17 @@ struct EditActiveTimerForm: View {
         let activityArg: Int? = a == initialActivityId ? nil : a
         let beginArg: Date? = abs(begin.timeIntervalSince(initialBegin)) > 1 ? begin : nil
         let descArg: String? = trimmed == trimmedInitial ? nil : trimmed
+        // Only send tags when they changed. Pass the (possibly empty) array so
+        // the user can clear tags intentionally.
+        let tagsArg: [String]? = tags.sorted() == initialTags.sorted() ? nil : tags
 
         Task {
             let ok = await store.updateActiveTimer(
                 begin: beginArg,
                 project: projectArg,
                 activity: activityArg,
-                description: descArg)
+                description: descArg,
+                tags: tagsArg)
             isSaving = false
             if ok {
                 onSaved()

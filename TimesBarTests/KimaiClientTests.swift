@@ -278,6 +278,75 @@ struct KimaiClientTests {
         #expect(bodyData.isEmpty)
     }
 
+    // MARK: - Tags
+
+    @Test func tagsHitsCorrectPathAndDecodesStringArray() async throws {
+        let session = mockSession { req in
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data(#"["deep-work","meeting","review"]"#.utf8))
+        }
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
+        let tags = try await client.tags()
+        #expect(tags == ["deep-work", "meeting", "review"])
+    }
+
+    @Test func startIncludesTagsAsCSVWhenProvided() async throws {
+        nonisolated(unsafe) var captured: URLRequest?
+        let session = mockSession { req in
+            captured = req
+            let body = """
+            {"id":7,"project":1,"activity":2,"begin":"2026-05-18T11:00:00+0200","end":null,"description":null}
+            """
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data(body.utf8))
+        }
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
+        _ = try await client.start(project: 1, activity: 2, description: nil, tags: ["deep-work", "meeting"])
+
+        let bodyData = try #require(captured).capturedBody()
+        let decoded = try JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
+        #expect(decoded?["tags"] as? String == "deep-work,meeting")
+    }
+
+    @Test func startOmitsTagsKeyWhenNil() async throws {
+        nonisolated(unsafe) var captured: URLRequest?
+        let session = mockSession { req in
+            captured = req
+            let body = """
+            {"id":7,"project":1,"activity":2,"begin":"2026-05-18T11:00:00+0200","end":null,"description":null}
+            """
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data(body.utf8))
+        }
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
+        _ = try await client.start(project: 1, activity: 2, description: nil, tags: nil)
+
+        let bodyData = try #require(captured).capturedBody()
+        let decoded = try JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
+        #expect(decoded?["tags"] == nil)
+    }
+
+    @Test func createTimesheetIncludesTagsWhenProvided() async throws {
+        nonisolated(unsafe) var captured: URLRequest?
+        let session = mockSession { req in
+            captured = req
+            let body = """
+            {"id":8,"project":3,"activity":4,"begin":"2026-05-18T09:00:00+0200","end":"2026-05-18T10:00:00+0200","description":null}
+            """
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data(body.utf8))
+        }
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
+        let begin = Date(timeIntervalSince1970: 1_716_019_200)
+        let end = Date(timeIntervalSince1970: 1_716_022_800)
+        _ = try await client.createTimesheet(begin: begin, end: end, project: 3, activity: 4,
+                                             description: nil, tags: ["review"])
+
+        let bodyData = try #require(captured).capturedBody()
+        let decoded = try JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
+        #expect(decoded?["tags"] as? String == "review")
+    }
+
     // MARK: - Pagination
 
     @Test func timesheetsPagesUntilShortPageReturned() async throws {

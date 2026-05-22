@@ -8,6 +8,7 @@ struct StartTimerForm: View {
     @State private var projectId: Int?
     @State private var activityId: Int?
     @State private var description: String = ""
+    @State private var tags: [String] = []
     @State private var isSubmitting = false
     @State private var errorMessage: String?
 
@@ -73,6 +74,10 @@ struct StartTimerForm: View {
                     .textFieldStyle(.plain)
                     .font(.system(size: 12))
                     .pillFieldStyle()
+            }
+
+            FormRow(label: "Tags") {
+                TagsField(tags: $tags, suggestions: store.knownTags)
             }
 
             if isPastEntry {
@@ -205,7 +210,8 @@ struct StartTimerForm: View {
                     activityId: entry.activity,
                     description: entry.description,
                     title: store.projectTitle(for: entry.project),
-                    durationSeconds: (entry.end ?? Date()).timeIntervalSince(entry.begin)
+                    durationSeconds: (entry.end ?? Date()).timeIntervalSince(entry.begin),
+                    tags: entry.tags
                 )
             }
     }
@@ -256,6 +262,7 @@ struct StartTimerForm: View {
         if let desc = item.description, !desc.isEmpty {
             description = desc
         }
+        tags = item.tags
     }
 
     private func submit() {
@@ -264,6 +271,7 @@ struct StartTimerForm: View {
         errorMessage = nil
         let trimmed = description.trimmingCharacters(in: .whitespacesAndNewlines)
         let note = trimmed.isEmpty ? nil : trimmed
+        let tagsArg: [String]? = tags.isEmpty ? nil : tags
         Task {
             let ok: Bool
             if isPastEntry {
@@ -272,12 +280,14 @@ struct StartTimerForm: View {
                     activity: a,
                     begin: begin,
                     end: hasEnd ? end : nil,
-                    description: note)
+                    description: note,
+                    tags: tagsArg)
             } else {
                 ok = await store.startCheckingResult(
                     project: p,
                     activity: a,
-                    description: note)
+                    description: note,
+                    tags: tagsArg)
             }
             isSubmitting = false
             if ok {
@@ -320,7 +330,7 @@ private struct SuggestionRow: View {
                 Image(systemName: "square.and.pencil")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(.secondary)
-                VStack(alignment: .leading, spacing: 1) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(item.title)
                         .font(.system(size: 13))
                         .lineLimit(1)
@@ -329,6 +339,9 @@ private struct SuggestionRow: View {
                             .font(.system(size: 11))
                             .foregroundStyle(.secondary)
                             .lineLimit(1)
+                    }
+                    if !item.tags.isEmpty {
+                        tagRow
                     }
                 }
                 Spacer(minLength: 8)
@@ -347,5 +360,26 @@ private struct SuggestionRow: View {
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
+    }
+
+    private var tagRow: some View {
+        let visible = Array(item.tags.prefix(3))
+        let overflow = item.tags.count - visible.count
+        return HStack(spacing: 3) {
+            ForEach(visible, id: \.self) { tag in
+                Text(tag)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 1)
+                    .padding(.horizontal, 4)
+                    .background(Capsule().fill(Color.primary.opacity(0.07)))
+                    .lineLimit(1)
+            }
+            if overflow > 0 {
+                Text("+\(overflow)")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+        }
     }
 }

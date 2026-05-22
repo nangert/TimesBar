@@ -27,6 +27,10 @@ final class TimerStore: ObservableObject {
     /// the forms close.
     @Published var nearbyEntries: [TimesheetEntity] = []
 
+    /// All tag names known to the connected Kimai instance. Populated on
+    /// bootstrap and used as autocomplete suggestions in the start/edit forms.
+    @Published var knownTags: [String] = []
+
     // Monthly-balance cache: full set of raw data per year, keyed by year.
     struct YearlyData: Equatable {
         let year: Int
@@ -235,6 +239,7 @@ final class TimerStore: ObservableObject {
             Task {
                 await loadUserMe()
                 await refreshDirectory()
+                await refreshTags()
                 await detectFirstTimesheetYear()
                 await refreshAbsences()
                 await refresh()
@@ -307,10 +312,18 @@ final class TimerStore: ObservableObject {
         isAuthenticated = true
         await loadUserMe()
         await refreshDirectory()
+        await refreshTags()
         await detectFirstTimesheetYear()
         await refresh()
         startTimers()
         return true
+    }
+
+    func refreshTags() async {
+        guard let client else { return }
+        if let fetched = await tryAuth({ try await client.tags() }) {
+            knownTags = fetched.sorted()
+        }
     }
 
     func refreshDirectory() async {
@@ -425,6 +438,7 @@ final class TimerStore: ObservableObject {
         projectColors = [:]
         activityTitles = [:]
         absences = []
+        knownTags = []
         yearlyData = nil
         loadingYear = nil
         detectedFirstTimesheetYear = nil
@@ -473,15 +487,15 @@ final class TimerStore: ObservableObject {
         }
     }
 
-    func start(project: Int, activity: Int, description: String?) async {
-        _ = await startCheckingResult(project: project, activity: activity, description: description)
+    func start(project: Int, activity: Int, description: String?, tags: [String]? = nil) async {
+        _ = await startCheckingResult(project: project, activity: activity, description: description, tags: tags)
     }
 
     @discardableResult
-    func startCheckingResult(project: Int, activity: Int, description: String?) async -> Bool {
+    func startCheckingResult(project: Int, activity: Int, description: String?, tags: [String]? = nil) async -> Bool {
         guard let client else { return false }
         do {
-            _ = try await client.start(project: project, activity: activity, description: description)
+            _ = try await client.start(project: project, activity: activity, description: description, tags: tags)
             await refresh()
             return true
         } catch KimaiError.unauthorized {
@@ -502,7 +516,8 @@ final class TimerStore: ObservableObject {
                   activity: Int,
                   begin: Date,
                   end: Date?,
-                  description: String?) async -> Bool {
+                  description: String?,
+                  tags: [String]? = nil) async -> Bool {
         guard let client else { return false }
         do {
             _ = try await client.createTimesheet(
@@ -510,7 +525,8 @@ final class TimerStore: ObservableObject {
                 end: end,
                 project: project,
                 activity: activity,
-                description: description)
+                description: description,
+                tags: tags)
             await refresh()
             return true
         } catch KimaiError.unauthorized {
@@ -528,7 +544,8 @@ final class TimerStore: ObservableObject {
     func updateActiveTimer(begin: Date? = nil,
                            project: Int? = nil,
                            activity: Int? = nil,
-                           description: String? = nil) async -> Bool {
+                           description: String? = nil,
+                           tags: [String]? = nil) async -> Bool {
         guard let client, let id = active?.id else { return false }
         do {
             _ = try await client.updateTimesheet(
@@ -536,7 +553,8 @@ final class TimerStore: ObservableObject {
                 project: project,
                 activity: activity,
                 begin: begin,
-                description: description)
+                description: description,
+                tags: tags)
             await refresh()
             return true
         } catch KimaiError.unauthorized {
