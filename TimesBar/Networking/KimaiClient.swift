@@ -104,10 +104,13 @@ struct KimaiClient {
         return try JSONDecoder.kimai.decode([TimesheetEntity].self, from: data)
     }
 
-    /// Create a stopped timesheet entry with explicit begin + end. Used by the
-    /// import tool for backfilling historical CSV data.
+    /// Create a timesheet entry with explicit begin and optional end. When `end`
+    /// is nil the entry is created in the running state — Kimai then treats it
+    /// as the user's active timer (it will reject a second concurrent active
+    /// entry). Used by the CSV backfill import tool and by the menu bar's
+    /// "log past entry" form.
     func createTimesheet(begin: Date,
-                         end: Date,
+                         end: Date?,
                          project: Int,
                          activity: Int,
                          description: String?) async throws -> TimesheetEntity {
@@ -115,12 +118,36 @@ struct KimaiClient {
             "project": project,
             "activity": activity,
             "begin": Self.kimaiLocalFormatter.string(from: begin),
-            "end": Self.kimaiLocalFormatter.string(from: end),
         ]
+        if let end {
+            payload["end"] = Self.kimaiLocalFormatter.string(from: end)
+        }
         if let description, !description.isEmpty { payload["description"] = description }
         let body = try JSONSerialization.data(withJSONObject: payload)
         let data = try await send(
             request("/api/timesheets", method: "POST", body: body))
+        return try JSONDecoder.kimai.decode(TimesheetEntity.self, from: data)
+    }
+
+    /// Patch a timesheet — used by the menu bar's edit-active-timer form. Any
+    /// nil argument is omitted from the payload, so this works for "just shift
+    /// the begin time" as well as full edits. Kimai's PATCH accepts the same
+    /// `TimesheetEditForm` schema as POST.
+    func updateTimesheet(id: Int,
+                         project: Int? = nil,
+                         activity: Int? = nil,
+                         begin: Date? = nil,
+                         end: Date? = nil,
+                         description: String? = nil) async throws -> TimesheetEntity {
+        var payload: [String: Any] = [:]
+        if let project { payload["project"] = project }
+        if let activity { payload["activity"] = activity }
+        if let begin { payload["begin"] = Self.kimaiLocalFormatter.string(from: begin) }
+        if let end { payload["end"] = Self.kimaiLocalFormatter.string(from: end) }
+        if let description { payload["description"] = description }
+        let body = try JSONSerialization.data(withJSONObject: payload)
+        let data = try await send(
+            request("/api/timesheets/\(id)", method: "PATCH", body: body))
         return try JSONDecoder.kimai.decode(TimesheetEntity.self, from: data)
     }
 

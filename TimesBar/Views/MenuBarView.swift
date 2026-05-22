@@ -7,7 +7,7 @@ struct MenuBarView: View {
     /// that previously had to be manually reset on every transition — easy to
     /// forget one and end up with overlapping panels.
     private enum Route {
-        case main, settings, startForm, timeOff, monthlyBalance
+        case main, settings, startForm, editActiveTimer, timeOff, monthlyBalance
     }
     @State private var route: Route = .main
     @State private var quickStartError: String?
@@ -29,6 +29,19 @@ struct MenuBarView: View {
                     TimeOffView(onClose: { route = .main })
                 case .monthlyBalance:
                     MonthlyBalanceView(onClose: { route = .main })
+                case .editActiveTimer:
+                    if store.active != nil {
+                        EditActiveTimerForm(
+                            onCancel: { route = .main },
+                            onSaved: { route = .main }
+                        )
+                        .environmentObject(store)
+                    } else {
+                        // Timer was stopped from another client mid-edit;
+                        // drop back to main rather than showing a stale form.
+                        authenticatedContent
+                            .onAppear { route = .main }
+                    }
                 case .main, .startForm:
                     authenticatedContent
                 }
@@ -46,6 +59,16 @@ struct MenuBarView: View {
             )
         }
         .padding(14)
+        .frame(width: dropdownWidth)
+    }
+
+    /// The forms with the calendar grid + time-range bar need more room than
+    /// the default menu width. Other panels stay compact.
+    private var dropdownWidth: CGFloat {
+        switch route {
+        case .startForm, .editActiveTimer: return 420
+        default: return 320
+        }
     }
 
     @ViewBuilder private var authenticatedContent: some View {
@@ -54,7 +77,8 @@ struct MenuBarView: View {
                 projectTitle: store.projectTitle(for: timesheet.project),
                 description: timesheet.description,
                 elapsed: store.elapsedString,
-                onStop: { Task { await store.stop() } }
+                onStop: { Task { await store.stop() } },
+                onEdit: { route = .editActiveTimer }
             )
         } else {
             SectionHeader(text: "Active")
