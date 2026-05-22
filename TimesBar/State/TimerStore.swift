@@ -6,6 +6,7 @@ final class TimerStore: ObservableObject {
     @Published var active: TimesheetEntity?
     @Published var weekHours: [Double] = Array(repeating: 0, count: 7)
     @Published var elapsedString: String = "--:--:--"
+    @Published var todayHours: Double = 0
     @Published var isAuthenticated: Bool = false
     @Published var recent: [TimesheetEntity] = []
     @Published var projectTitles: [Int: String] = [:]
@@ -149,6 +150,12 @@ final class TimerStore: ObservableObject {
 
     // MARK: - Pure helpers (unit-tested)
 
+    /// Returns the 0-based weekday index (Monday=0 … Sunday=6) for `now`
+    /// within the ISO week that starts on `weekStart`.
+    nonisolated static func todayIndex(weekStart: Date, now: Date, calendar: Calendar) -> Int {
+        max(0, min(6, calendar.dateComponents([.day], from: weekStart, to: now).day ?? 0))
+    }
+
     nonisolated static func elapsedString(seconds: Int) -> String {
         let s = max(0, seconds)
         return String(format: "%02d:%02d:%02d", s / 3600, (s % 3600) / 60, s % 60)
@@ -175,6 +182,9 @@ final class TimerStore: ObservableObject {
     private var pollTimer: Timer?
     private var tickTimer: Timer?
     private var client: KimaiClient?
+    /// Timestamp of the last `refreshWeek()` call — used by `tickElapsed` to
+    /// compute the live delta for the currently running timer without polling.
+    private var weekHoursRefreshedAt: Date = .distantPast
 
     /// Rebuild the client after the base URL changes. Reads the current token
     /// from the Keychain and constructs a fresh `KimaiClient` with the new URL,
@@ -530,6 +540,7 @@ final class TimerStore: ObservableObject {
         let weekEnd = cal.date(byAdding: .day, value: 7, to: weekStart)!
         if let entries = await tryAuth({ try await client.timesheets(begin: weekStart, end: weekEnd) }) {
             weekHours = Self.weekHours(entries: entries, weekStart: weekStart, calendar: cal, now: now)
+            weekHoursRefreshedAt = now
         }
     }
 
@@ -553,7 +564,45 @@ final class TimerStore: ObservableObject {
     }
 
     private func tickElapsed() {
-        guard let begin = active?.begin else { elapsedString = "--:--:--"; return }
-        elapsedString = Self.elapsedString(seconds: Int(Date().timeIntervalSince(begin)))
+        let now = Date()
+        guard let begin = active?.begin else {
+            elapsedString = "--:--:--"
+            todayHours = Self.todayHoursValue(
+                weekHours: weekHours, activeBegin: nil,
+                weekHoursRefreshedAt: weekHoursRefreshedAt, now: now)
+            return
+        }
+        elapsedString = Self.elapsedString(seconds: Int(now.timeIntervalSince(begin)))
+        todayHours = Self.todayHoursValue(
+            weekHours: weekHours, activeBegin: begin,
+            weekHoursRefreshedAt: weekHoursRefreshedAt, now: now)
+    }
+
+    /// Computes live today-hours from the last-fetched `weekHours` bucket.
+    /// `weekHours[todayIdx]` was computed at `weekHoursRefreshedAt` using
+    /// `entry.end ?? refreshTime` for any running entry, so it already includes
+    /// elapsed up to that moment. We add the delta `(now − refreshedAt)` for
+    /// a timer that started today so the value ticks every second between polls.
+    nonisolated static func todayHoursValue(weekHours: [Double],
+                                            activeBegin: Date?,
+                                            weekHoursRefreshedAt: Date,
+                                            now: Date,
+                                            calendar: Calendar? = nil) -> Double {
+        let cal = calendar ?? {
+            var c = Calendar(identifier: .iso8601)
+            c.timeZone = .current
+            return c
+        }()
+        let comps = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
+        guard let weekStart = cal.date(from: comps) else { return 0 }
+        let idx = todayIndex(weekStart: weekStart, now: now, calendar: cal)
+        let stored = weekHours[safe: idx] ?? 0
+
+        guard let begin = activeBegin else { return stored }
+        let startOfDay = cal.startOfDay(for: now)
+        // Only add the live delta when the active timer started today.
+        guard begin >= startOfDay else { return stored }
+        let deltaSecs = max(0, now.timeIntervalSince(max(begin, weekHoursRefreshedAt)))
+        return stored + deltaSecs / 3600.0
     }
 }

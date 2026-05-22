@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TotalsSection: View {
     let weekHours: [Double]
+    let todayHours: Double
     let dailyTargetHours: Double
 
     private var todayIndex: Int {
@@ -11,12 +12,11 @@ struct TotalsSection: View {
         return (weekday + 5) % 7
     }
 
-    private var hoursToday: Double { weekHours[safe: todayIndex] ?? 0 }
     private var weekTotal: Double { weekHours.reduce(0, +) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            TodayProgressView(hoursToday: hoursToday, targetHours: dailyTargetHours)
+            TodayProgressView(hoursToday: todayHours, targetHours: dailyTargetHours)
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline) {
                     SectionHeader(text: "This week")

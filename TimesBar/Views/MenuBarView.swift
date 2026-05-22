@@ -120,6 +120,7 @@ struct MenuBarView: View {
         }
         Divider()
         TotalsSection(weekHours: store.weekHours,
+                      todayHours: store.todayHours,
                       dailyTargetHours: store.hoursPerWorkingDay)
     }
 
