@@ -33,7 +33,7 @@ open /Applications/TimesBar.app
 
 Click the timer icon in your menu bar. Paste a Kimai API token from your Kimai user profile (**Settings → API access**) and click **Verify & save**. The token is verified via `GET /api/ping` and stored in your login keychain.
 
-> **Heads-up:** the Kimai base URL is currently hardcoded to `https://times.lipsum.services`. Edit [`TimesBar/Networking/KimaiClient.swift`](TimesBar/Networking/KimaiClient.swift) if you're pointing at a different Kimai install. Making this user-configurable is on the to-do list.
+To point TimesBar at a different Kimai install, open **Settings → Server** and enter your instance base URL.
 
 ## Development
 

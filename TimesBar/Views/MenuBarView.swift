@@ -21,7 +21,7 @@ struct MenuBarView: View {
             } else {
                 switch route {
                 case .settings:
-                    TokenSetupForm(
+                    SettingsView(
                         onCancel: { route = .main },
                         onSaved: { route = .main }
                     )

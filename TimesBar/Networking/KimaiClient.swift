@@ -5,7 +5,7 @@ struct KimaiClient {
     let token: String
     let session: URLSession
 
-    init(baseURL: URL = URL(string: "https://times.lipsum.services")!,
+    init(baseURL: URL,
          token: String,
          session: URLSession = .shared) {
         self.baseURL = baseURL

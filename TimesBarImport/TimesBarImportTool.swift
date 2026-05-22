@@ -56,7 +56,7 @@ struct TimesBarImportTool {
             exit(1)
         }
 
-        let client = KimaiClient(token: resolvedToken)
+        let client = KimaiClient(baseURL: URL(string: "https://times.lipsum.services")!, token: resolvedToken)
 
         if listProjects {
             try await Importer.listProjects(client: client)

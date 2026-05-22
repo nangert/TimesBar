@@ -8,6 +8,7 @@ struct FooterRow: View {
     let onSignOut: () -> Void
 
     @State private var launchAtLogin = LaunchAtLogin.isEnabled
+    @ObservedObject private var prefs = UserPreferences.shared
 
     var body: some View {
         HStack(spacing: 14) {
@@ -22,9 +23,7 @@ struct FooterRow: View {
             Spacer()
 
             Button {
-                if let url = URL(string: "https://times.lipsum.services") {
-                    NSWorkspace.shared.open(url)
-                }
+                NSWorkspace.shared.open(prefs.baseURL)
             } label: {
                 HStack(spacing: 4) {
                     Text("Open web")

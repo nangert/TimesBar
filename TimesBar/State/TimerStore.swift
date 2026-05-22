@@ -176,9 +176,18 @@ final class TimerStore: ObservableObject {
     private var tickTimer: Timer?
     private var client: KimaiClient?
 
+    /// Rebuild the client after the base URL changes. Reads the current token
+    /// from the Keychain and constructs a fresh `KimaiClient` with the new URL,
+    /// then refreshes to verify the new endpoint is reachable.
+    func rebuildClient() async {
+        guard let token = TokenStore().read() else { return }
+        client = KimaiClient(baseURL: UserPreferences.shared.baseURL, token: token)
+        await refresh()
+    }
+
     func bootstrap() {
         if let token = TokenStore().read() {
-            client = KimaiClient(token: token)
+            client = KimaiClient(baseURL: UserPreferences.shared.baseURL, token: token)
             isAuthenticated = true
             Task {
                 await loadUserMe()
@@ -239,7 +248,7 @@ final class TimerStore: ObservableObject {
     }
 
     func authenticate(with token: String) async -> Bool {
-        let candidate = KimaiClient(token: token)
+        let candidate = KimaiClient(baseURL: UserPreferences.shared.baseURL, token: token)
         do {
             try await candidate.ping()
         } catch {
