@@ -20,6 +20,11 @@ struct MenuBarView: View {
                     // saved successfully — drop back to the normal dropdown
                 }
             } else {
+                if let rec = store.pendingSleepReconciliation {
+                    SleepReconciliationSheet(reconciliation: rec)
+                        .environmentObject(store)
+                    Divider()
+                }
                 switch route {
                 case .settings:
                     SettingsView(

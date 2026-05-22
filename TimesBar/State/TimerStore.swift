@@ -31,6 +31,25 @@ final class TimerStore: ObservableObject {
     /// bootstrap and used as autocomplete suggestions in the start/edit forms.
     @Published var knownTags: [String] = []
 
+    // MARK: - Sleep reconciliation
+
+    /// Metadata captured at willSleep so we can detect an externally-stopped
+    /// entry and reconstruct the reconciliation prompt at wake.
+    struct SleepReconciliation: Equatable {
+        let runningEntryId: Int
+        let sleepStart: Date
+        let wakeAt: Date
+        let project: Int
+        let activity: Int
+        let description: String?
+        let tags: [String]
+    }
+
+    @Published var pendingSleepReconciliation: SleepReconciliation?
+
+    /// Snapshot stored at willSleep — nil if no timer was running.
+    private var sleepSnapshot: (id: Int, sleepStart: Date, project: Int, activity: Int, description: String?, tags: [String])?
+
     // Monthly-balance cache: full set of raw data per year, keyed by year.
     struct YearlyData: Equatable {
         let year: Int
@@ -161,6 +180,87 @@ final class TimerStore: ObservableObject {
 
     func activityTitle(for id: Int) -> String {
         activityTitles[id] ?? "Activity #\(id)"
+    }
+
+    // MARK: - Sleep reconciliation handlers
+
+    /// Called when macOS sends willSleepNotification. Snapshots the running
+    /// entry's metadata so we can validate it is still active at wake.
+    func handleWillSleep(at now: Date = Date()) {
+        guard let entry = active else {
+            sleepSnapshot = nil
+            return
+        }
+        sleepSnapshot = (id: entry.id,
+                         sleepStart: now,
+                         project: entry.project,
+                         activity: entry.activity,
+                         description: entry.description,
+                         tags: entry.tags)
+    }
+
+    /// Called when macOS sends didWakeNotification. If sleep lasted ≥10 minutes
+    /// and the same entry is still active, populates `pendingSleepReconciliation`.
+    func handleDidWake(at now: Date = Date()) {
+        guard
+            let snap = sleepSnapshot,
+            Self.shouldPrompt(sleepStart: snap.sleepStart, wakeAt: now),
+            active?.id == snap.id
+        else {
+            // Clear snapshot so stale data doesn't affect the next cycle.
+            sleepSnapshot = nil
+            return
+        }
+        sleepSnapshot = nil
+        pendingSleepReconciliation = SleepReconciliation(
+            runningEntryId: snap.id,
+            sleepStart: snap.sleepStart,
+            wakeAt: now,
+            project: snap.project,
+            activity: snap.activity,
+            description: snap.description,
+            tags: snap.tags)
+    }
+
+    /// Returns true when the sleep duration meets the prompt threshold.
+    nonisolated static func shouldPrompt(sleepStart: Date?,
+                                         wakeAt: Date,
+                                         threshold: TimeInterval = 600) -> Bool {
+        guard let start = sleepStart else { return false }
+        return wakeAt.timeIntervalSince(start) >= threshold
+    }
+
+    // MARK: - Sleep reconciliation actions
+
+    /// Keep elapsed time as-is — simply dismiss the prompt.
+    func keepRunning() {
+        pendingSleepReconciliation = nil
+    }
+
+    /// Stop the running entry at the moment of sleep.
+    func backdateStopToSleep() {
+        guard let rec = pendingSleepReconciliation else { return }
+        pendingSleepReconciliation = nil
+        Task {
+            await updateTimesheet(id: rec.runningEntryId, end: rec.sleepStart)
+        }
+    }
+
+    /// Stop the running entry at sleep, then start a fresh one at wake with
+    /// the same project / activity / description / tags.
+    func splitAtSleep() {
+        guard let rec = pendingSleepReconciliation else { return }
+        pendingSleepReconciliation = nil
+        Task {
+            _ = await updateTimesheet(id: rec.runningEntryId, end: rec.sleepStart)
+            _ = await logEntry(
+                project: rec.project,
+                activity: rec.activity,
+                begin: rec.wakeAt,
+                end: nil,
+                description: rec.description,
+                tags: rec.tags.isEmpty ? nil : rec.tags)
+        }
     }
 
     // MARK: - Pure helpers (unit-tested)

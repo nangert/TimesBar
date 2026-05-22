@@ -3,12 +3,27 @@ import SwiftUI
 @main
 struct TimesBarApp: App {
     @StateObject private var store = TimerStore()
+    // Held for app lifetime so sleep/wake notifications keep firing.
+    @State private var sleepObserver: SleepObserver?
 
     var body: some Scene {
         MenuBarExtra {
             MenuBarView()
                 .environmentObject(store)
-                .onAppear { store.bootstrap() }
+                .task {
+                    store.bootstrap()
+                    if sleepObserver == nil {
+                        let s = store
+                        sleepObserver = SleepObserver { event in
+                            Task { @MainActor in
+                                switch event {
+                                case .willSleep(let at): s.handleWillSleep(at: at)
+                                case .didWake(let at):   s.handleDidWake(at: at)
+                                }
+                            }
+                        }
+                    }
+                }
         } label: {
             MenuBarLabel()
                 .environmentObject(store)
