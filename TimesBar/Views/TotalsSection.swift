@@ -2,7 +2,10 @@ import SwiftUI
 
 struct TotalsSection: View {
     let weekHours: [Double]
+    let todayHours: Double
     let dailyTargetHours: Double
+    var weekProjectHours: [[(projectId: Int, hours: Double)]] = Array(repeating: [], count: 7)
+    var colorForProject: (Int) -> Color = { id in Color.forProject(id: id, hex: nil) }
 
     private var todayIndex: Int {
         let cal = Calendar(identifier: .iso8601)
@@ -11,12 +14,11 @@ struct TotalsSection: View {
         return (weekday + 5) % 7
     }
 
-    private var hoursToday: Double { weekHours[safe: todayIndex] ?? 0 }
     private var weekTotal: Double { weekHours.reduce(0, +) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            TodayProgressView(hoursToday: hoursToday, targetHours: dailyTargetHours)
+            TodayProgressView(hoursToday: todayHours, targetHours: dailyTargetHours)
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline) {
                     SectionHeader(text: "This week")
@@ -24,7 +26,10 @@ struct TotalsSection: View {
                     Text(formatHoursAndMinutes(weekTotal))
                         .font(.system(size: 12, weight: .medium, design: .monospaced))
                 }
-                WeekBarChart(weekHours: weekHours, todayIndex: todayIndex)
+                WeekBarChart(weekHours: weekHours,
+                             todayIndex: todayIndex,
+                             weekProjectHours: weekProjectHours,
+                             colorForProject: colorForProject)
             }
         }
     }

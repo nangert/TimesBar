@@ -15,7 +15,7 @@ struct KimaiClientTests {
             let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (response, Data("{}".utf8))
         }
-        let client = KimaiClient(token: "abc123", session: session)
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "abc123", session: session)
 
         try await client.ping()
 
@@ -31,7 +31,7 @@ struct KimaiClientTests {
             let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (response, Data(body.utf8))
         }
-        let client = KimaiClient(token: "t", session: session)
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
         let entries = try await client.active()
         #expect(entries.count == 1)
         #expect(entries[0].id == 1)
@@ -47,7 +47,7 @@ struct KimaiClientTests {
             let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (response, Data(body.utf8))
         }
-        let client = KimaiClient(token: "t", session: session)
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
         _ = try await client.stop(id: 99)
 
         #expect(captured?.httpMethod == "PATCH")
@@ -61,7 +61,7 @@ struct KimaiClientTests {
             let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (response, Data("[]".utf8))
         }
-        let client = KimaiClient(token: "t", session: session)
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
         _ = try await client.recent()
         #expect(captured?.url?.path == "/api/timesheets/recent")
     }
@@ -76,7 +76,7 @@ struct KimaiClientTests {
             let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (response, Data(body.utf8))
         }
-        let client = KimaiClient(token: "t", session: session)
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
         _ = try await client.start(project: 1, activity: 2, description: "hi")
 
         #expect(captured?.httpMethod == "POST")
@@ -95,7 +95,7 @@ struct KimaiClientTests {
             // Empty page short-circuits the pagination loop after one request.
             return (response, Data("[]".utf8))
         }
-        let client = KimaiClient(token: "t", session: session)
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
         let begin = Date(timeIntervalSince1970: 1_700_000_000)
         let end = Date(timeIntervalSince1970: 1_700_604_800)
         _ = try await client.timesheets(begin: begin, end: end, pageSize: 250)
@@ -128,7 +128,7 @@ struct KimaiClientTests {
             let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (response, Data(body.utf8))
         }
-        let client = KimaiClient(token: "t", session: session)
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
         _ = try await client.start(project: 1, activity: 2, description: nil)
 
         let bodyData = try #require(captured).capturedBody()
@@ -152,7 +152,7 @@ struct KimaiClientTests {
             let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (response, Data(body.utf8))
         }
-        let client = KimaiClient(token: "t", session: session)
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
         var cal = Calendar(identifier: .iso8601)
         cal.timeZone = .current
         let date = cal.date(from: DateComponents(year: 2026, month: 8, day: 5))!
@@ -187,7 +187,7 @@ struct KimaiClientTests {
             let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (response, Data("[]".utf8))
         }
-        let client = KimaiClient(token: "t", session: session)
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
         var cal = Calendar(identifier: .iso8601)
         cal.timeZone = .current
         let begin = cal.date(from: DateComponents(year: 2026, month: 8, day: 5))!
@@ -212,7 +212,7 @@ struct KimaiClientTests {
             let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (response, Data("[]".utf8))
         }
-        let client = KimaiClient(token: "t", session: session)
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
         _ = try await client.createAbsence(
             user: 7, date: Date(), end: nil, type: "holiday",
             halfDay: true, comment: nil)
@@ -229,7 +229,7 @@ struct KimaiClientTests {
             let response = HTTPURLResponse(url: req.url!, statusCode: 204, httpVersion: nil, headerFields: nil)!
             return (response, Data())
         }
-        let client = KimaiClient(token: "t", session: session)
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
         try await client.deleteAbsence(id: 123)
 
         #expect(captured?.httpMethod == "DELETE")
@@ -248,7 +248,7 @@ struct KimaiClientTests {
             let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (response, Data(body.utf8))
         }
-        let client = KimaiClient(token: "t", session: session)
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
         let entry = try await client.restart(id: 99)
 
         #expect(captured?.httpMethod == "PATCH")
@@ -270,12 +270,81 @@ struct KimaiClientTests {
             let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (response, Data(body.utf8))
         }
-        let client = KimaiClient(token: "t", session: session)
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
         _ = try await client.restart(id: 99, copyAll: false)
 
         #expect(captured?.httpMethod == "PATCH")
         let bodyData = try #require(captured).capturedBody()
         #expect(bodyData.isEmpty)
+    }
+
+    // MARK: - Tags
+
+    @Test func tagsHitsCorrectPathAndDecodesStringArray() async throws {
+        let session = mockSession { req in
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data(#"["deep-work","meeting","review"]"#.utf8))
+        }
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
+        let tags = try await client.tags()
+        #expect(tags == ["deep-work", "meeting", "review"])
+    }
+
+    @Test func startIncludesTagsAsCSVWhenProvided() async throws {
+        nonisolated(unsafe) var captured: URLRequest?
+        let session = mockSession { req in
+            captured = req
+            let body = """
+            {"id":7,"project":1,"activity":2,"begin":"2026-05-18T11:00:00+0200","end":null,"description":null}
+            """
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data(body.utf8))
+        }
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
+        _ = try await client.start(project: 1, activity: 2, description: nil, tags: ["deep-work", "meeting"])
+
+        let bodyData = try #require(captured).capturedBody()
+        let decoded = try JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
+        #expect(decoded?["tags"] as? String == "deep-work,meeting")
+    }
+
+    @Test func startOmitsTagsKeyWhenNil() async throws {
+        nonisolated(unsafe) var captured: URLRequest?
+        let session = mockSession { req in
+            captured = req
+            let body = """
+            {"id":7,"project":1,"activity":2,"begin":"2026-05-18T11:00:00+0200","end":null,"description":null}
+            """
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data(body.utf8))
+        }
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
+        _ = try await client.start(project: 1, activity: 2, description: nil, tags: nil)
+
+        let bodyData = try #require(captured).capturedBody()
+        let decoded = try JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
+        #expect(decoded?["tags"] == nil)
+    }
+
+    @Test func createTimesheetIncludesTagsWhenProvided() async throws {
+        nonisolated(unsafe) var captured: URLRequest?
+        let session = mockSession { req in
+            captured = req
+            let body = """
+            {"id":8,"project":3,"activity":4,"begin":"2026-05-18T09:00:00+0200","end":"2026-05-18T10:00:00+0200","description":null}
+            """
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data(body.utf8))
+        }
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
+        let begin = Date(timeIntervalSince1970: 1_716_019_200)
+        let end = Date(timeIntervalSince1970: 1_716_022_800)
+        _ = try await client.createTimesheet(begin: begin, end: end, project: 3, activity: 4,
+                                             description: nil, tags: ["review"])
+
+        let bodyData = try #require(captured).capturedBody()
+        let decoded = try JSONSerialization.jsonObject(with: bodyData) as? [String: Any]
+        #expect(decoded?["tags"] as? String == "review")
     }
 
     // MARK: - Pagination
@@ -302,7 +371,7 @@ struct KimaiClientTests {
             let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (response, Data(body.utf8))
         }
-        let client = KimaiClient(token: "t", session: session)
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
         let entries = try await client.timesheets(
             begin: Date(timeIntervalSince1970: 0),
             end: Date(timeIntervalSince1970: 1),
@@ -328,13 +397,47 @@ struct KimaiClientTests {
             let response = HTTPURLResponse(url: req.url!, statusCode: 404, httpVersion: nil, headerFields: nil)!
             return (response, Data("{}".utf8))
         }
-        let client = KimaiClient(token: "t", session: session)
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
         let entries = try await client.timesheets(
             begin: Date(timeIntervalSince1970: 0),
             end: Date(timeIntervalSince1970: 1),
             pageSize: 2)
         #expect(entries.count == 2)
         #expect(calls == 2)
+    }
+
+    // MARK: - Delete / Duplicate timesheets
+
+    @Test func deleteTimesheetSendsDeleteToCorrectPath() async throws {
+        nonisolated(unsafe) var captured: URLRequest?
+        let session = mockSession { req in
+            captured = req
+            let response = HTTPURLResponse(url: req.url!, statusCode: 204, httpVersion: nil, headerFields: nil)!
+            return (response, Data())
+        }
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
+        try await client.deleteTimesheet(id: 42)
+
+        #expect(captured?.httpMethod == "DELETE")
+        #expect(captured?.url?.path == "/api/timesheets/42")
+    }
+
+    @Test func duplicateTimesheetSendsPostToCorrectPath() async throws {
+        nonisolated(unsafe) var captured: URLRequest?
+        let session = mockSession { req in
+            captured = req
+            let body = """
+            {"id":99,"project":1,"activity":2,"begin":"2026-05-18T09:00:00+0200","end":"2026-05-18T10:00:00+0200","description":"copy"}
+            """
+            let response = HTTPURLResponse(url: req.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (response, Data(body.utf8))
+        }
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
+        let duplicated = try await client.duplicateTimesheet(id: 42)
+
+        #expect(captured?.httpMethod == "POST")
+        #expect(captured?.url?.path == "/api/timesheets/42/duplicate")
+        #expect(duplicated.id == 99)
     }
 
     // MARK: - Error handling
@@ -344,7 +447,7 @@ struct KimaiClientTests {
             let response = HTTPURLResponse(url: req.url!, statusCode: 401, httpVersion: nil, headerFields: nil)!
             return (response, Data(#"{"message":"Invalid credentials"}"#.utf8))
         }
-        let client = KimaiClient(token: "bad", session: session)
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "bad", session: session)
         do {
             _ = try await client.active()
             Issue.record("Expected KimaiError.unauthorized to be thrown")
@@ -360,7 +463,7 @@ struct KimaiClientTests {
             let response = HTTPURLResponse(url: req.url!, statusCode: 403, httpVersion: nil, headerFields: nil)!
             return (response, Data("{}".utf8))
         }
-        let client = KimaiClient(token: "t", session: session)
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
         do {
             _ = try await client.active()
             Issue.record("Expected KimaiError.unauthorized")
@@ -376,7 +479,7 @@ struct KimaiClientTests {
             let response = HTTPURLResponse(url: req.url!, statusCode: 500, httpVersion: nil, headerFields: nil)!
             return (response, Data(#"{"error":"oops"}"#.utf8))
         }
-        let client = KimaiClient(token: "t", session: session)
+        let client = KimaiClient(baseURL: URL(string: "https://test.example")!, token: "t", session: session)
         do {
             _ = try await client.active()
             Issue.record("Expected KimaiError.server")

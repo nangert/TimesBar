@@ -1,15 +1,23 @@
 import Foundation
 import Combine
+import SwiftUI
 
 @MainActor
 final class TimerStore: ObservableObject {
     @Published var active: TimesheetEntity?
     @Published var weekHours: [Double] = Array(repeating: 0, count: 7)
     @Published var elapsedString: String = "--:--:--"
+    @Published var todayHours: Double = 0
     @Published var isAuthenticated: Bool = false
     @Published var recent: [TimesheetEntity] = []
     @Published var projectTitles: [Int: String] = [:]
+    @Published var projectColors: [Int: String?] = [:]
     @Published var activityTitles: [Int: String] = [:]
+
+    /// Per-day breakdown of hours by project for the current ISO week.
+    /// Index 0 = Monday … 6 = Sunday. Each element is an array of
+    /// (projectId, hours) pairs for that day, sorted descending by duration.
+    @Published var weekProjectHours: [[(projectId: Int, hours: Double)]] = Array(repeating: [], count: 7)
     @Published var absences: [Absence] = []
     @Published var userMe: UserMe?
 
@@ -18,6 +26,54 @@ final class TimerStore: ObservableObject {
     /// TimeRangeBar so the user can see what's already logged. Cleared when
     /// the forms close.
     @Published var nearbyEntries: [TimesheetEntity] = []
+
+    /// All tag names known to the connected Kimai instance. Populated on
+    /// bootstrap and used as autocomplete suggestions in the start/edit forms.
+    @Published var knownTags: [String] = []
+
+    // MARK: - Auto-stop toast
+
+    struct AutoStopToast: Equatable {
+        let stoppedAt: Date
+        let lastEntryId: Int
+    }
+
+    @Published var autoStopToast: AutoStopToast?
+
+    // MARK: - Idle detection
+
+    struct IdlePrompt: Equatable {
+        let runningEntryId: Int
+        let idleStart: Date
+        let project: Int
+        let activity: Int
+        let description: String?
+        let tags: [String]
+    }
+
+    @Published var pendingIdlePrompt: IdlePrompt?
+
+    private var idleMonitor: IdleMonitor?
+    private var hotkeyManager: HotkeyManager?
+
+    // MARK: - Sleep reconciliation
+
+    /// Metadata captured at willSleep so we can detect an externally-stopped
+    /// entry and reconstruct the reconciliation prompt at wake.
+    struct SleepReconciliation: Equatable {
+        let runningEntryId: Int
+        let sleepStart: Date
+        let wakeAt: Date
+        let project: Int
+        let activity: Int
+        let description: String?
+        let tags: [String]
+    }
+
+    @Published var pendingSleepReconciliation: SleepReconciliation?
+
+    /// Snapshot stored at willSleep — nil if no timer was running.
+    private var sleepSnapshot: (id: Int, sleepStart: Date, project: Int, activity: Int, description: String?, tags: [String])?
 
     // Monthly-balance cache: full set of raw data per year, keyed by year.
     struct YearlyData: Equatable {
@@ -143,11 +199,197 @@ final class TimerStore: ObservableObject {
         projectTitles[id] ?? "Project #\(id)"
     }
 
+    func projectColor(for id: Int) -> Color {
+        Color.forProject(id: id, hex: projectColors[id] ?? nil)
+    }
+
     func activityTitle(for id: Int) -> String {
         activityTitles[id] ?? "Activity #\(id)"
     }
 
+    // MARK: - Sleep reconciliation handlers
+
+    /// Called when macOS sends willSleepNotification. Snapshots the running
+    /// entry's metadata so we can validate it is still active at wake.
+    func handleWillSleep(at now: Date = Date()) {
+        guard let entry = active else {
+            sleepSnapshot = nil
+            return
+        }
+        sleepSnapshot = (id: entry.id,
+                         sleepStart: now,
+                         project: entry.project,
+                         activity: entry.activity,
+                         description: entry.description,
+                         tags: entry.tags)
+    }
+
+    /// Called when macOS sends didWakeNotification. If sleep lasted ≥10 minutes
+    /// and the same entry is still active, populates `pendingSleepReconciliation`.
+    func handleDidWake(at now: Date = Date()) {
+        guard
+            let snap = sleepSnapshot,
+            Self.shouldPrompt(sleepStart: snap.sleepStart, wakeAt: now),
+            active?.id == snap.id
+        else {
+            // Clear snapshot so stale data doesn't affect the next cycle.
+            sleepSnapshot = nil
+            return
+        }
+        sleepSnapshot = nil
+        pendingSleepReconciliation = SleepReconciliation(
+            runningEntryId: snap.id,
+            sleepStart: snap.sleepStart,
+            wakeAt: now,
+            project: snap.project,
+            activity: snap.activity,
+            description: snap.description,
+            tags: snap.tags)
+    }
+
+    /// Returns the estimated moment the user went idle.
+    nonisolated static func idleStartedAt(now: Date, secondsIdle: TimeInterval) -> Date {
+        now - secondsIdle
+    }
+
+    /// Returns true when the sleep duration meets the prompt threshold.
+    nonisolated static func shouldPrompt(sleepStart: Date?,
+                                         wakeAt: Date,
+                                         threshold: TimeInterval = 600) -> Bool {
+        guard let start = sleepStart else { return false }
+        return wakeAt.timeIntervalSince(start) >= threshold
+    }
+
+    // MARK: - Sleep reconciliation actions
+
+    /// Keep elapsed time as-is — simply dismiss the prompt.
+    func keepRunning() {
+        pendingSleepReconciliation = nil
+    }
+
+    /// Stop the running entry at the moment of sleep.
+    func backdateStopToSleep() {
+        guard let rec = pendingSleepReconciliation else { return }
+        pendingSleepReconciliation = nil
+        Task {
+            await updateTimesheet(id: rec.runningEntryId, end: rec.sleepStart)
+        }
+    }
+
+    /// Stop the running entry at sleep, then start a fresh one at wake with
+    /// the same project / activity / description / tags.
+    func splitAtSleep() {
+        guard let rec = pendingSleepReconciliation else { return }
+        pendingSleepReconciliation = nil
+        Task {
+            _ = await updateTimesheet(id: rec.runningEntryId, end: rec.sleepStart)
+            _ = await logEntry(
+                project: rec.project,
+                activity: rec.activity,
+                begin: rec.wakeAt,
+                end: nil,
+                description: rec.description,
+                tags: rec.tags.isEmpty ? nil : rec.tags)
+        }
+    }
+
+    // MARK: - Idle detection handlers
+
+    /// Called by IdleMonitor when idle time crosses the threshold.
+    func handleIdleCrossedThreshold(secondsIdle: TimeInterval, now: Date = Date()) {
+        guard let entry = active else { return }
+        let idleStart = Self.idleStartedAt(now: now, secondsIdle: secondsIdle)
+        // Discard if idle started before the timer did — edge case where the
+        // system was already idle when the user started the timer.
+        guard idleStart >= entry.begin else { return }
+        pendingIdlePrompt = IdlePrompt(
+            runningEntryId: entry.id,
+            idleStart: idleStart,
+            project: entry.project,
+            activity: entry.activity,
+            description: entry.description,
+            tags: entry.tags)
+    }
+
+    /// Keep the full elapsed time — simply dismiss the prompt.
+    func keepIdleTime() {
+        pendingIdlePrompt = nil
+    }
+
+    /// Stop the running entry at the moment the user went idle.
+    func backdateStopToIdle() {
+        guard let prompt = pendingIdlePrompt else { return }
+        pendingIdlePrompt = nil
+        Task {
+            await updateTimesheet(id: prompt.runningEntryId, end: prompt.idleStart)
+        }
+    }
+
+    /// Register or unregister the ⌘⌥T global hotkey based on the current
+    /// `hotkeyEnabled` preference. Call this from SettingsView when the toggle
+    /// changes, and on app launch to restore the previous setting.
+    func applyHotkeyPref() {
+        hotkeyManager?.unregister()
+        hotkeyManager = nil
+        guard UserPreferences.shared.hotkeyEnabled else { return }
+        let manager = HotkeyManager()
+        manager.register(keyCode: kVK_ANSI_T, modifiers: kDefaultHotkeyModifiers) { [weak self] in
+            self?.toggleTimer()
+        }
+        hotkeyManager = manager
+    }
+
+    /// Start or stop the IdleMonitor based on current preferences. Called from
+    /// SettingsView after the user toggles idle-detection, and from `startTimers()`.
+    func restartIdleMonitor() {
+        idleMonitor?.stop()
+        idleMonitor = nil
+        let prefs = UserPreferences.shared
+        guard prefs.idleDetectionEnabled else { return }
+        let threshold = TimeInterval(prefs.idleThresholdMinutes) * 60
+        let monitor = IdleMonitor()
+        monitor.onIdleCrossedThreshold = { [weak self] seconds in
+            Task { @MainActor in self?.handleIdleCrossedThreshold(secondsIdle: seconds) }
+        }
+        monitor.start(threshold: threshold)
+        idleMonitor = monitor
+    }
+
     // MARK: - Pure helpers (unit-tested)
+
+    /// Returns true when a running timer should be automatically stopped.
+    ///
+    /// - Parameters:
+    ///   - now: The current wall-clock time.
+    ///   - runningSince: When the active timer was started.
+    ///   - autoStopTime: Hour + minute configured by the user.
+    ///   - calendar: Calendar used for date arithmetic (injectable for tests).
+    ///
+    /// Note: midnight wrap (e.g. stop time = 02:00) is not handled in v1 —
+    /// only same-day stop times (00:00–23:59) are supported.
+    nonisolated static func shouldAutoStop(now: Date,
+                                           runningSince: Date,
+                                           autoStopTime: DateComponents,
+                                           calendar: Calendar = .current) -> Bool {
+        guard let hour   = autoStopTime.hour,
+              let minute = autoStopTime.minute else { return false }
+
+        let startOfToday = calendar.startOfDay(for: now)
+        guard let stopTime = calendar.date(bySettingHour: hour,
+                                           minute: minute,
+                                           second: 0,
+                                           of: startOfToday) else { return false }
+
+        // The timer must have been started before today's configured stop time,
+        // and the current time must be at or after it.
+        return runningSince < stopTime && now >= stopTime
+    }
+
+    /// Returns the 0-based weekday index (Monday=0 … Sunday=6) for `now`
+    /// within the ISO week that starts on `weekStart`.
+    nonisolated static func todayIndex(weekStart: Date, now: Date, calendar: Calendar) -> Int {
+        max(0, min(6, calendar.dateComponents([.day], from: weekStart, to: now).day ?? 0))
+    }
 
     nonisolated static func elapsedString(seconds: Int) -> String {
         let s = max(0, seconds)
@@ -170,19 +412,55 @@ final class TimerStore: ObservableObject {
         return buckets
     }
 
+    /// Per-day breakdown of hours by project for the current ISO week.
+    /// Returns an array of 7 elements (Monday=0 … Sunday=6); each element is a
+    /// list of `(projectId, hours)` pairs sorted descending by hours.
+    nonisolated static func weekProjectHours(entries: [TimesheetEntity],
+                                             weekStart: Date,
+                                             calendar: Calendar,
+                                             now: Date = Date()) -> [[(projectId: Int, hours: Double)]] {
+        var buckets: [[Int: Double]] = Array(repeating: [:], count: 7)
+        for entry in entries {
+            let stop = entry.end ?? now
+            let elapsed = stop.timeIntervalSince(entry.begin)
+            guard elapsed > 0 else { continue }
+            let day = calendar.dateComponents([.day], from: weekStart, to: entry.begin).day ?? 0
+            guard day >= 0, day < 7 else { continue }
+            buckets[day][entry.project, default: 0] += elapsed / 3600.0
+        }
+        return buckets.map { dict in
+            dict.map { (projectId: $0.key, hours: $0.value) }
+                .sorted { $0.hours > $1.hours }
+        }
+    }
+
     // MARK: - Live state
 
     private var pollTimer: Timer?
     private var tickTimer: Timer?
+    private var autoStopTimer: Timer?
     private var client: KimaiClient?
+    /// Timestamp of the last `refreshWeek()` call — used by `tickElapsed` to
+    /// compute the live delta for the currently running timer without polling.
+    private var weekHoursRefreshedAt: Date = .distantPast
+
+    /// Rebuild the client after the base URL changes. Reads the current token
+    /// from the Keychain and constructs a fresh `KimaiClient` with the new URL,
+    /// then refreshes to verify the new endpoint is reachable.
+    func rebuildClient() async {
+        guard let token = TokenStore().read() else { return }
+        client = KimaiClient(baseURL: UserPreferences.shared.baseURL, token: token)
+        await refresh()
+    }
 
     func bootstrap() {
         if let token = TokenStore().read() {
-            client = KimaiClient(token: token)
+            client = KimaiClient(baseURL: UserPreferences.shared.baseURL, token: token)
             isAuthenticated = true
             Task {
                 await loadUserMe()
                 await refreshDirectory()
+                await refreshTags()
                 await detectFirstTimesheetYear()
                 await refreshAbsences()
                 await refresh()
@@ -220,6 +498,23 @@ final class TimerStore: ObservableObject {
         }
     }
 
+    /// Tear down all ephemeral state shared by `signOut()` and
+    /// `handleUnauthorized()`: timers, hotkey, idle monitor, and any pending
+    /// UI prompts that reference in-flight Kimai operations.
+    private func teardownEphemeralState() {
+        pollTimer?.invalidate()
+        tickTimer?.invalidate()
+        autoStopTimer?.invalidate()
+        idleMonitor?.stop()
+        idleMonitor = nil
+        hotkeyManager?.unregister()
+        hotkeyManager = nil
+        sleepSnapshot = nil
+        pendingSleepReconciliation = nil
+        pendingIdlePrompt = nil
+        autoStopToast = nil
+    }
+
     /// Tear down live state when Kimai stops accepting the token. Mirrors
     /// `signOut()` but keeps the Keychain entry — the user may want to paste
     /// a fresh token and continue, and we don't know if the old one is just
@@ -227,11 +522,11 @@ final class TimerStore: ObservableObject {
     private func handleUnauthorized() {
         guard isAuthenticated else { return }
         NSLog("TimesBar: Kimai rejected the token (401/403); returning to sign-in")
-        pollTimer?.invalidate()
-        tickTimer?.invalidate()
+        teardownEphemeralState()
         client = nil
         active = nil
         weekHours = Array(repeating: 0, count: 7)
+        weekProjectHours = Array(repeating: [], count: 7)
         elapsedString = "--:--:--"
         recent = []
         loadingYear = nil
@@ -239,7 +534,7 @@ final class TimerStore: ObservableObject {
     }
 
     func authenticate(with token: String) async -> Bool {
-        let candidate = KimaiClient(token: token)
+        let candidate = KimaiClient(baseURL: UserPreferences.shared.baseURL, token: token)
         do {
             try await candidate.ping()
         } catch {
@@ -254,16 +549,25 @@ final class TimerStore: ObservableObject {
         isAuthenticated = true
         await loadUserMe()
         await refreshDirectory()
+        await refreshTags()
         await detectFirstTimesheetYear()
         await refresh()
         startTimers()
         return true
     }
 
+    func refreshTags() async {
+        guard let client else { return }
+        if let fetched = await tryAuth({ try await client.tags() }) {
+            knownTags = fetched.sorted()
+        }
+    }
+
     func refreshDirectory() async {
         guard let client else { return }
         if let p = await tryAuth({ try await client.projects() }) {
             projectTitles = Dictionary(uniqueKeysWithValues: p.map { ($0.id, $0.displayTitle) })
+            projectColors = Dictionary(uniqueKeysWithValues: p.map { ($0.id, $0.color) })
         }
         if let a = await tryAuth({ try await client.activities() }) {
             activityTitles = Dictionary(uniqueKeysWithValues: a.map { ($0.id, $0.name) })
@@ -360,27 +664,63 @@ final class TimerStore: ObservableObject {
 
     func signOut() {
         TokenStore().delete()
+        teardownEphemeralState()
         client = nil
         active = nil
         weekHours = Array(repeating: 0, count: 7)
+        weekProjectHours = Array(repeating: [], count: 7)
         elapsedString = "--:--:--"
         isAuthenticated = false
         recent = []
         projectTitles = [:]
+        projectColors = [:]
         activityTitles = [:]
         absences = []
+        knownTags = []
         yearlyData = nil
         loadingYear = nil
         detectedFirstTimesheetYear = nil
         userMe = nil
-        pollTimer?.invalidate()
-        tickTimer?.invalidate()
     }
 
     func stop() async {
         guard let client, let id = active?.id else { return }
         _ = await tryAuth { try await client.stop(id: id) }
         await refresh()
+    }
+
+    /// Toggle the running timer via the global hotkey.
+    ///
+    /// Decision table:
+    /// - Timer running → stop it.
+    /// - No timer running, `recent` non-empty → resume the most recent entry.
+    /// - No timer running, `recent` empty → no-op (we have nothing to restart).
+    func toggleTimer() {
+        Task {
+            switch Self.toggleTimerAction(isRunning: active != nil, recentIds: recent.map(\.id)) {
+            case .stop:
+                await stop()
+            case .resume(let id):
+                _ = await resumeCheckingResult(timesheetId: id)
+            case .noOp:
+                break
+            }
+        }
+    }
+
+    /// The action to take when `toggleTimer()` is invoked.
+    enum ToggleTimerAction: Equatable {
+        case stop
+        case resume(id: Int)
+        case noOp
+    }
+
+    /// Pure decision function for the hotkey toggle — extracted for unit testing.
+    nonisolated static func toggleTimerAction(isRunning: Bool,
+                                              recentIds: [Int]) -> ToggleTimerAction {
+        if isRunning { return .stop }
+        if let first = recentIds.first { return .resume(id: first) }
+        return .noOp
     }
 
     func refresh() async {
@@ -417,15 +757,15 @@ final class TimerStore: ObservableObject {
         }
     }
 
-    func start(project: Int, activity: Int, description: String?) async {
-        _ = await startCheckingResult(project: project, activity: activity, description: description)
+    func start(project: Int, activity: Int, description: String?, tags: [String]? = nil) async {
+        _ = await startCheckingResult(project: project, activity: activity, description: description, tags: tags)
     }
 
     @discardableResult
-    func startCheckingResult(project: Int, activity: Int, description: String?) async -> Bool {
+    func startCheckingResult(project: Int, activity: Int, description: String?, tags: [String]? = nil) async -> Bool {
         guard let client else { return false }
         do {
-            _ = try await client.start(project: project, activity: activity, description: description)
+            _ = try await client.start(project: project, activity: activity, description: description, tags: tags)
             await refresh()
             return true
         } catch KimaiError.unauthorized {
@@ -446,7 +786,8 @@ final class TimerStore: ObservableObject {
                   activity: Int,
                   begin: Date,
                   end: Date?,
-                  description: String?) async -> Bool {
+                  description: String?,
+                  tags: [String]? = nil) async -> Bool {
         guard let client else { return false }
         do {
             _ = try await client.createTimesheet(
@@ -454,7 +795,71 @@ final class TimerStore: ObservableObject {
                 end: end,
                 project: project,
                 activity: activity,
-                description: description)
+                description: description,
+                tags: tags)
+            await refresh()
+            return true
+        } catch KimaiError.unauthorized {
+            handleUnauthorized()
+            return false
+        } catch {
+            return false
+        }
+    }
+
+    /// PATCH any completed timesheet by ID. Used by `EditTimesheetForm`. Any nil
+    /// argument is left unchanged on the server.
+    @discardableResult
+    func updateTimesheet(id: Int,
+                         project: Int? = nil,
+                         activity: Int? = nil,
+                         begin: Date? = nil,
+                         end: Date? = nil,
+                         description: String? = nil,
+                         tags: [String]? = nil) async -> Bool {
+        guard let client else { return false }
+        do {
+            _ = try await client.updateTimesheet(
+                id: id,
+                project: project,
+                activity: activity,
+                begin: begin,
+                end: end,
+                description: description,
+                tags: tags)
+            await refresh()
+            return true
+        } catch KimaiError.unauthorized {
+            handleUnauthorized()
+            return false
+        } catch {
+            return false
+        }
+    }
+
+    /// DELETE a timesheet entry by ID. Refreshes recent + week after success.
+    @discardableResult
+    func deleteTimesheet(id: Int) async -> Bool {
+        guard let client else { return false }
+        do {
+            try await client.deleteTimesheet(id: id)
+            await refresh()
+            return true
+        } catch KimaiError.unauthorized {
+            handleUnauthorized()
+            return false
+        } catch {
+            return false
+        }
+    }
+
+    /// Duplicate a timesheet entry via Kimai's POST /duplicate endpoint.
+    /// Refreshes after success so the new entry appears in the recent list.
+    @discardableResult
+    func duplicateTimesheet(id: Int) async -> Bool {
+        guard let client else { return false }
+        do {
+            _ = try await client.duplicateTimesheet(id: id)
             await refresh()
             return true
         } catch KimaiError.unauthorized {
@@ -472,7 +877,8 @@ final class TimerStore: ObservableObject {
     func updateActiveTimer(begin: Date? = nil,
                            project: Int? = nil,
                            activity: Int? = nil,
-                           description: String? = nil) async -> Bool {
+                           description: String? = nil,
+                           tags: [String]? = nil) async -> Bool {
         guard let client, let id = active?.id else { return false }
         do {
             _ = try await client.updateTimesheet(
@@ -480,7 +886,8 @@ final class TimerStore: ObservableObject {
                 project: project,
                 activity: activity,
                 begin: begin,
-                description: description)
+                description: description,
+                tags: tags)
             await refresh()
             return true
         } catch KimaiError.unauthorized {
@@ -521,12 +928,15 @@ final class TimerStore: ObservableObject {
         let weekEnd = cal.date(byAdding: .day, value: 7, to: weekStart)!
         if let entries = await tryAuth({ try await client.timesheets(begin: weekStart, end: weekEnd) }) {
             weekHours = Self.weekHours(entries: entries, weekStart: weekStart, calendar: cal, now: now)
+            weekProjectHours = Self.weekProjectHours(entries: entries, weekStart: weekStart, calendar: cal, now: now)
+            weekHoursRefreshedAt = now
         }
     }
 
     private func startTimers() {
         pollTimer?.invalidate()
         tickTimer?.invalidate()
+        autoStopTimer?.invalidate()
 
         // Schedule on `.common` so the timers continue to fire while the MenuBarExtra
         // dropdown is open (the run loop is in `.eventTracking` then, and a timer
@@ -537,14 +947,97 @@ final class TimerStore: ObservableObject {
         let tick = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tickElapsed() }
         }
+        let autoStop = Timer(timeInterval: 60, repeats: true) { [weak self] _ in
+            Task { @MainActor in await self?.checkAutoStop() }
+        }
         RunLoop.main.add(poll, forMode: .common)
         RunLoop.main.add(tick, forMode: .common)
+        RunLoop.main.add(autoStop, forMode: .common)
         pollTimer = poll
         tickTimer = tick
+        autoStopTimer = autoStop
+
+        restartIdleMonitor()
+    }
+
+    private func checkAutoStop() async {
+        let prefs = UserPreferences.shared
+        guard prefs.autoStopEnabled,
+              let entry = active,
+              let client = client,
+              let h = prefs.autoStopTime.hour,
+              let m = prefs.autoStopTime.minute else { return }
+        let cal = Calendar.current
+        let startOfToday = cal.startOfDay(for: Date())
+        guard let stopTime = cal.date(bySettingHour: h, minute: m, second: 0, of: startOfToday) else { return }
+        let now = Date()
+        guard Self.shouldAutoStop(now: now, runningSince: entry.begin, autoStopTime: prefs.autoStopTime) else { return }
+
+        let entryId = entry.id
+        // Record exact configured stop time, not "now".
+        _ = await tryAuth { try await client.updateTimesheet(id: entryId, end: stopTime) }
+        await refresh()
+        autoStopToast = AutoStopToast(stoppedAt: stopTime, lastEntryId: entryId)
+
+        // Auto-dismiss the toast after 30 seconds if the user hasn't acted.
+        Task {
+            try? await Task.sleep(nanoseconds: 30_000_000_000)
+            if autoStopToast?.lastEntryId == entryId {
+                autoStopToast = nil
+            }
+        }
+    }
+
+    /// Resume the auto-stopped entry by restarting it via Kimai's /restart
+    /// endpoint (copies description + tags). Clears the toast on success.
+    func undoAutoStop() {
+        guard let toast = autoStopToast else { return }
+        autoStopToast = nil
+        Task {
+            _ = await resumeCheckingResult(timesheetId: toast.lastEntryId)
+        }
     }
 
     private func tickElapsed() {
-        guard let begin = active?.begin else { elapsedString = "--:--:--"; return }
-        elapsedString = Self.elapsedString(seconds: Int(Date().timeIntervalSince(begin)))
+        let now = Date()
+        guard let begin = active?.begin else {
+            elapsedString = "--:--:--"
+            todayHours = Self.todayHoursValue(
+                weekHours: weekHours, activeBegin: nil,
+                weekHoursRefreshedAt: weekHoursRefreshedAt, now: now)
+            return
+        }
+        elapsedString = Self.elapsedString(seconds: Int(now.timeIntervalSince(begin)))
+        todayHours = Self.todayHoursValue(
+            weekHours: weekHours, activeBegin: begin,
+            weekHoursRefreshedAt: weekHoursRefreshedAt, now: now)
+    }
+
+    /// Computes live today-hours from the last-fetched `weekHours` bucket.
+    /// `weekHours[todayIdx]` was computed at `weekHoursRefreshedAt` using
+    /// `entry.end ?? refreshTime` for any running entry, so it already includes
+    /// elapsed up to that moment. We add the delta `(now − refreshedAt)` for
+    /// a timer that started today so the value ticks every second between polls.
+    nonisolated static func todayHoursValue(weekHours: [Double],
+                                            activeBegin: Date?,
+                                            weekHoursRefreshedAt: Date,
+                                            now: Date,
+                                            calendar: Calendar? = nil) -> Double {
+        let cal = calendar ?? {
+            var c = Calendar(identifier: .iso8601)
+            c.timeZone = .current
+            return c
+        }()
+        let comps = cal.dateComponents([.yearForWeekOfYear, .weekOfYear], from: now)
+        guard let weekStart = cal.date(from: comps) else { return 0 }
+        let idx = todayIndex(weekStart: weekStart, now: now, calendar: cal)
+        let stored = weekHours[safe: idx] ?? 0
+
+        guard let begin = activeBegin else { return stored }
+        let startOfDay = cal.startOfDay(for: now)
+        // Only add the live delta when the active timer started today.
+        guard begin >= startOfDay else { return stored }
+        let deltaSecs = max(0, now.timeIntervalSince(max(begin, weekHoursRefreshedAt)))
+        return stored + deltaSecs / 3600.0
     }
 }

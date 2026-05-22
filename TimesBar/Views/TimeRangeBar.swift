@@ -35,6 +35,10 @@ struct TimeRangeBar: View {
     /// as a muted block on top of the green selection is just visual noise.
     var excludeEntryId: Int? = nil
 
+    /// Maps a project ID to its display color. Passed as a closure so the bar
+    /// remains testable without a full TimerStore dependency.
+    var colorForProject: (Int) -> Color = { id in Color.forProject(id: id, hex: nil) }
+
     /// Snap resolution while dragging.
     private let snapSeconds: TimeInterval = 300
 
@@ -100,7 +104,7 @@ struct TimeRangeBar: View {
                         let x1 = xPos(for: entryBegin, in: win, total: total, width: width)
                         let x2 = xPos(for: entryEnd, in: win, total: total, width: width)
                         RoundedRectangle(cornerRadius: 3)
-                            .fill(Color.secondary.opacity(0.28))
+                            .fill(colorForProject(entry.project).opacity(0.28))
                             .frame(width: max(2, x2 - x1), height: 18)
                             .offset(x: x1, y: 17)
                             .help(entryTooltip(entry))

@@ -54,3 +54,36 @@ import Foundation
     #expect(entity.end != nil)
     #expect(entity.description == nil)
 }
+
+@Test func decodesTagsFromActiveEndpoint() throws {
+    let json = """
+    {
+      "id": 99,
+      "project": { "id": 2, "name": "Backend" },
+      "activity": { "id": 5, "name": "Dev" },
+      "begin": "2026-05-18T10:00:00+0200",
+      "end": null,
+      "description": null,
+      "tags": ["deep-work", "meeting"]
+    }
+    """.data(using: .utf8)!
+
+    let entity = try JSONDecoder.kimai.decode(TimesheetEntity.self, from: json)
+    #expect(entity.tags == ["deep-work", "meeting"])
+}
+
+@Test func defaultsTagsToEmptyWhenFieldAbsent() throws {
+    let json = """
+    {"id":1,"project":1,"activity":1,"begin":"2026-05-18T09:00:00+0200","end":null,"description":null}
+    """.data(using: .utf8)!
+    let entity = try JSONDecoder.kimai.decode(TimesheetEntity.self, from: json)
+    #expect(entity.tags.isEmpty)
+}
+
+@Test func decodesEmptyTagsArray() throws {
+    let json = """
+    {"id":1,"project":1,"activity":1,"begin":"2026-05-18T09:00:00+0200","end":null,"description":null,"tags":[]}
+    """.data(using: .utf8)!
+    let entity = try JSONDecoder.kimai.decode(TimesheetEntity.self, from: json)
+    #expect(entity.tags.isEmpty)
+}
