@@ -498,6 +498,23 @@ final class TimerStore: ObservableObject {
         }
     }
 
+    /// Tear down all ephemeral state shared by `signOut()` and
+    /// `handleUnauthorized()`: timers, hotkey, idle monitor, and any pending
+    /// UI prompts that reference in-flight Kimai operations.
+    private func teardownEphemeralState() {
+        pollTimer?.invalidate()
+        tickTimer?.invalidate()
+        autoStopTimer?.invalidate()
+        idleMonitor?.stop()
+        idleMonitor = nil
+        hotkeyManager?.unregister()
+        hotkeyManager = nil
+        sleepSnapshot = nil
+        pendingSleepReconciliation = nil
+        pendingIdlePrompt = nil
+        autoStopToast = nil
+    }
+
     /// Tear down live state when Kimai stops accepting the token. Mirrors
     /// `signOut()` but keeps the Keychain entry — the user may want to paste
     /// a fresh token and continue, and we don't know if the old one is just
@@ -505,11 +522,7 @@ final class TimerStore: ObservableObject {
     private func handleUnauthorized() {
         guard isAuthenticated else { return }
         NSLog("TimesBar: Kimai rejected the token (401/403); returning to sign-in")
-        pollTimer?.invalidate()
-        tickTimer?.invalidate()
-        autoStopTimer?.invalidate()
-        idleMonitor?.stop()
-        idleMonitor = nil
+        teardownEphemeralState()
         client = nil
         active = nil
         weekHours = Array(repeating: 0, count: 7)
@@ -651,6 +664,7 @@ final class TimerStore: ObservableObject {
 
     func signOut() {
         TokenStore().delete()
+        teardownEphemeralState()
         client = nil
         active = nil
         weekHours = Array(repeating: 0, count: 7)
@@ -667,12 +681,6 @@ final class TimerStore: ObservableObject {
         loadingYear = nil
         detectedFirstTimesheetYear = nil
         userMe = nil
-        pendingIdlePrompt = nil
-        pollTimer?.invalidate()
-        tickTimer?.invalidate()
-        autoStopTimer?.invalidate()
-        idleMonitor?.stop()
-        idleMonitor = nil
     }
 
     func stop() async {
