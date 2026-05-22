@@ -104,6 +104,32 @@ struct SettingsView: View {
                     .datePickerStyle(.field)
                 }
             }
+
+            Toggle("Prompt when idle", isOn: $prefs.idleDetectionEnabled)
+                .toggleStyle(.switch)
+                .font(.system(size: 12))
+                .onChange(of: prefs.idleDetectionEnabled) { _, _ in
+                    store.restartIdleMonitor()
+                }
+
+            if prefs.idleDetectionEnabled {
+                FormRow(label: "Idle threshold (min)") {
+                    Stepper(
+                        value: Binding(
+                            get: { prefs.idleThresholdMinutes },
+                            set: { prefs.idleThresholdMinutes = min(60, max(5, $0)) }
+                        ),
+                        in: 5...60,
+                        step: 5
+                    ) {
+                        Text("\(prefs.idleThresholdMinutes)")
+                            .font(.system(size: 12, design: .monospaced))
+                    }
+                    .onChange(of: prefs.idleThresholdMinutes) { _, _ in
+                        store.restartIdleMonitor()
+                    }
+                }
+            }
         }
     }
 

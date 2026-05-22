@@ -40,6 +40,21 @@ final class TimerStore: ObservableObject {
 
     @Published var autoStopToast: AutoStopToast?
 
+    // MARK: - Idle detection
+
+    struct IdlePrompt: Equatable {
+        let runningEntryId: Int
+        let idleStart: Date
+        let project: Int
+        let activity: Int
+        let description: String?
+        let tags: [String]
+    }
+
+    @Published var pendingIdlePrompt: IdlePrompt?
+
+    private var idleMonitor: IdleMonitor?
+
     // MARK: - Sleep reconciliation
 
     /// Metadata captured at willSleep so we can detect an externally-stopped
@@ -231,6 +246,11 @@ final class TimerStore: ObservableObject {
             tags: snap.tags)
     }
 
+    /// Returns the estimated moment the user went idle.
+    nonisolated static func idleStartedAt(now: Date, secondsIdle: TimeInterval) -> Date {
+        now - secondsIdle
+    }
+
     /// Returns true when the sleep duration meets the prompt threshold.
     nonisolated static func shouldPrompt(sleepStart: Date?,
                                          wakeAt: Date,
@@ -270,6 +290,54 @@ final class TimerStore: ObservableObject {
                 description: rec.description,
                 tags: rec.tags.isEmpty ? nil : rec.tags)
         }
+    }
+
+    // MARK: - Idle detection handlers
+
+    /// Called by IdleMonitor when idle time crosses the threshold.
+    func handleIdleCrossedThreshold(secondsIdle: TimeInterval, now: Date = Date()) {
+        guard let entry = active else { return }
+        let idleStart = Self.idleStartedAt(now: now, secondsIdle: secondsIdle)
+        // Discard if idle started before the timer did — edge case where the
+        // system was already idle when the user started the timer.
+        guard idleStart >= entry.begin else { return }
+        pendingIdlePrompt = IdlePrompt(
+            runningEntryId: entry.id,
+            idleStart: idleStart,
+            project: entry.project,
+            activity: entry.activity,
+            description: entry.description,
+            tags: entry.tags)
+    }
+
+    /// Keep the full elapsed time — simply dismiss the prompt.
+    func keepIdleTime() {
+        pendingIdlePrompt = nil
+    }
+
+    /// Stop the running entry at the moment the user went idle.
+    func backdateStopToIdle() {
+        guard let prompt = pendingIdlePrompt else { return }
+        pendingIdlePrompt = nil
+        Task {
+            await updateTimesheet(id: prompt.runningEntryId, end: prompt.idleStart)
+        }
+    }
+
+    /// Start or stop the IdleMonitor based on current preferences. Called from
+    /// SettingsView after the user toggles idle-detection, and from `startTimers()`.
+    func restartIdleMonitor() {
+        idleMonitor?.stop()
+        idleMonitor = nil
+        let prefs = UserPreferences.shared
+        guard prefs.idleDetectionEnabled else { return }
+        let threshold = TimeInterval(prefs.idleThresholdMinutes) * 60
+        let monitor = IdleMonitor()
+        monitor.onIdleCrossedThreshold = { [weak self] seconds in
+            Task { @MainActor in self?.handleIdleCrossedThreshold(secondsIdle: seconds) }
+        }
+        monitor.start(threshold: threshold)
+        idleMonitor = monitor
     }
 
     // MARK: - Pure helpers (unit-tested)
@@ -425,6 +493,8 @@ final class TimerStore: ObservableObject {
         pollTimer?.invalidate()
         tickTimer?.invalidate()
         autoStopTimer?.invalidate()
+        idleMonitor?.stop()
+        idleMonitor = nil
         client = nil
         active = nil
         weekHours = Array(repeating: 0, count: 7)
@@ -582,9 +652,12 @@ final class TimerStore: ObservableObject {
         loadingYear = nil
         detectedFirstTimesheetYear = nil
         userMe = nil
+        pendingIdlePrompt = nil
         pollTimer?.invalidate()
         tickTimer?.invalidate()
         autoStopTimer?.invalidate()
+        idleMonitor?.stop()
+        idleMonitor = nil
     }
 
     func stop() async {
@@ -826,6 +899,8 @@ final class TimerStore: ObservableObject {
         pollTimer = poll
         tickTimer = tick
         autoStopTimer = autoStop
+
+        restartIdleMonitor()
     }
 
     private func checkAutoStop() async {

@@ -11,6 +11,10 @@ private let autoStopMinuteKey  = "autoStopMinute"
 private let defaultAutoStopHour   = 19
 private let defaultAutoStopMinute = 0
 
+private let idleDetectionEnabledKey   = "idleDetectionEnabled"
+private let idleThresholdMinutesKey   = "idleThresholdMinutes"
+private let defaultIdleThresholdMinutes = 15
+
 @MainActor
 final class UserPreferences: ObservableObject {
     static let shared = UserPreferences()
@@ -26,6 +30,21 @@ final class UserPreferences: ObservableObject {
     @Published var autoStopEnabled: Bool {
         didSet {
             UserDefaults.standard.set(autoStopEnabled, forKey: autoStopEnabledKey)
+        }
+    }
+
+    /// Whether idle-detection prompts are active. Defaults to `false`.
+    @Published var idleDetectionEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(idleDetectionEnabled, forKey: idleDetectionEnabledKey)
+        }
+    }
+
+    /// Minutes of no input before the idle prompt fires. Persisted as a single
+    /// Int. Clamped to 5–60 by the UI.
+    @Published var idleThresholdMinutes: Int {
+        didSet {
+            UserDefaults.standard.set(idleThresholdMinutes, forKey: idleThresholdMinutesKey)
         }
     }
 
@@ -51,6 +70,14 @@ final class UserPreferences: ObservableObject {
         }
 
         autoStopEnabled = UserDefaults.standard.bool(forKey: autoStopEnabledKey)
+
+        idleDetectionEnabled = UserDefaults.standard.bool(forKey: idleDetectionEnabledKey)
+
+        if UserDefaults.standard.object(forKey: idleThresholdMinutesKey) != nil {
+            idleThresholdMinutes = UserDefaults.standard.integer(forKey: idleThresholdMinutesKey)
+        } else {
+            idleThresholdMinutes = defaultIdleThresholdMinutes
+        }
 
         let storedHour: Int
         let storedMinute: Int
