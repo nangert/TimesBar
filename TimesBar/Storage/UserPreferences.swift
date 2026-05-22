@@ -15,6 +15,8 @@ private let idleDetectionEnabledKey   = "idleDetectionEnabled"
 private let idleThresholdMinutesKey   = "idleThresholdMinutes"
 private let defaultIdleThresholdMinutes = 15
 
+private let hotkeyEnabledKey = "hotkeyEnabled"
+
 @MainActor
 final class UserPreferences: ObservableObject {
     static let shared = UserPreferences()
@@ -30,6 +32,13 @@ final class UserPreferences: ObservableObject {
     @Published var autoStopEnabled: Bool {
         didSet {
             UserDefaults.standard.set(autoStopEnabled, forKey: autoStopEnabledKey)
+        }
+    }
+
+    /// Whether the global ⌘⌥T hotkey is active. Defaults to `false`.
+    @Published var hotkeyEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(hotkeyEnabled, forKey: hotkeyEnabledKey)
         }
     }
 
@@ -70,6 +79,8 @@ final class UserPreferences: ObservableObject {
         }
 
         autoStopEnabled = UserDefaults.standard.bool(forKey: autoStopEnabledKey)
+
+        hotkeyEnabled = UserDefaults.standard.bool(forKey: hotkeyEnabledKey)
 
         idleDetectionEnabled = UserDefaults.standard.bool(forKey: idleDetectionEnabledKey)
 

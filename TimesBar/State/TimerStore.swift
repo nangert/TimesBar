@@ -54,6 +54,7 @@ final class TimerStore: ObservableObject {
     @Published var pendingIdlePrompt: IdlePrompt?
 
     private var idleMonitor: IdleMonitor?
+    private var hotkeyManager: HotkeyManager?
 
     // MARK: - Sleep reconciliation
 
@@ -322,6 +323,20 @@ final class TimerStore: ObservableObject {
         Task {
             await updateTimesheet(id: prompt.runningEntryId, end: prompt.idleStart)
         }
+    }
+
+    /// Register or unregister the ⌘⌥T global hotkey based on the current
+    /// `hotkeyEnabled` preference. Call this from SettingsView when the toggle
+    /// changes, and on app launch to restore the previous setting.
+    func applyHotkeyPref() {
+        hotkeyManager?.unregister()
+        hotkeyManager = nil
+        guard UserPreferences.shared.hotkeyEnabled else { return }
+        let manager = HotkeyManager()
+        manager.register(keyCode: kVK_ANSI_T, modifiers: kDefaultHotkeyModifiers) { [weak self] in
+            self?.toggleTimer()
+        }
+        hotkeyManager = manager
     }
 
     /// Start or stop the IdleMonitor based on current preferences. Called from
@@ -664,6 +679,40 @@ final class TimerStore: ObservableObject {
         guard let client, let id = active?.id else { return }
         _ = await tryAuth { try await client.stop(id: id) }
         await refresh()
+    }
+
+    /// Toggle the running timer via the global hotkey.
+    ///
+    /// Decision table:
+    /// - Timer running → stop it.
+    /// - No timer running, `recent` non-empty → resume the most recent entry.
+    /// - No timer running, `recent` empty → no-op (we have nothing to restart).
+    func toggleTimer() {
+        Task {
+            switch Self.toggleTimerAction(isRunning: active != nil, recentIds: recent.map(\.id)) {
+            case .stop:
+                await stop()
+            case .resume(let id):
+                _ = await resumeCheckingResult(timesheetId: id)
+            case .noOp:
+                break
+            }
+        }
+    }
+
+    /// The action to take when `toggleTimer()` is invoked.
+    enum ToggleTimerAction: Equatable {
+        case stop
+        case resume(id: Int)
+        case noOp
+    }
+
+    /// Pure decision function for the hotkey toggle — extracted for unit testing.
+    nonisolated static func toggleTimerAction(isRunning: Bool,
+                                              recentIds: [Int]) -> ToggleTimerAction {
+        if isRunning { return .stop }
+        if let first = recentIds.first { return .resume(id: first) }
+        return .noOp
     }
 
     func refresh() async {

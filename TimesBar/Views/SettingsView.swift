@@ -105,6 +105,13 @@ struct SettingsView: View {
                 }
             }
 
+            Toggle("Global hotkey (⌘⌥T) toggles timer", isOn: $prefs.hotkeyEnabled)
+                .toggleStyle(.switch)
+                .font(.system(size: 12))
+                .onChange(of: prefs.hotkeyEnabled) { _, _ in
+                    store.applyHotkeyPref()
+                }
+
             Toggle("Prompt when idle", isOn: $prefs.idleDetectionEnabled)
                 .toggleStyle(.switch)
                 .font(.system(size: 12))

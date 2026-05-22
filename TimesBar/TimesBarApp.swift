@@ -23,6 +23,8 @@ struct TimesBarApp: App {
                             }
                         }
                     }
+                    // Restore the global hotkey if it was enabled in a prior session.
+                    store.applyHotkeyPref()
                 }
         } label: {
             MenuBarLabel()
