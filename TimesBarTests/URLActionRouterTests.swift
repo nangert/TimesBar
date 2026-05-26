@@ -20,6 +20,10 @@ import Foundation
     #expect(URLActionRouter.parse(URL(string: "timesbar://pause")!) == .pause)
 }
 
+@Test func parse_openWebURL() {
+    #expect(URLActionRouter.parse(URL(string: "timesbar://web")!) == .openWeb)
+}
+
 @Test func parse_isCaseInsensitive() {
     #expect(URLActionRouter.parse(URL(string: "TIMESBAR://STOP")!) == .stop)
     #expect(URLActionRouter.parse(URL(string: "timesbar://STARTLAST")!) == .startLast)

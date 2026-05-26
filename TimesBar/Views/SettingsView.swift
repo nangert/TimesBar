@@ -25,6 +25,10 @@ struct SettingsView: View {
             Divider()
 
             behaviorSection
+
+            Divider()
+
+            launchRemindersSection
         }
         .onAppear {
             urlText = prefs.baseURL.absoluteString
@@ -138,6 +142,55 @@ struct SettingsView: View {
                 }
             }
         }
+    }
+
+    private var launchRemindersSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            SectionHeader(text: "Launch reminders")
+
+            Toggle("Remind me to start a timer when I open dev tools",
+                   isOn: launchReminderToggle)
+                .toggleStyle(.switch)
+                .font(.system(size: 12))
+
+            if prefs.launchReminderEnabled {
+                VStack(alignment: .leading, spacing: 3) {
+                    ForEach(launchReminderKnownApps, id: \.bundleId) { app in
+                        Toggle(app.label, isOn: appToggle(for: app.bundleId))
+                            .toggleStyle(.checkbox)
+                            .font(.system(size: 11))
+                    }
+                }
+                .padding(.leading, 6)
+                .padding(.top, 2)
+            }
+        }
+    }
+
+    /// Binding for the master toggle. Side-effects: kicks the observer to
+    /// reflect the new state and, on enable, asks for notification permission.
+    private var launchReminderToggle: Binding<Bool> {
+        Binding(
+            get: { prefs.launchReminderEnabled },
+            set: { newValue in
+                prefs.launchReminderEnabled = newValue
+                store.applyLaunchReminderPref()
+                if newValue {
+                    Task { _ = await LaunchReminderObserver.requestAuthorization() }
+                }
+            }
+        )
+    }
+
+    private func appToggle(for bundleId: String) -> Binding<Bool> {
+        Binding(
+            get: { prefs.launchReminderBundleIds.contains(bundleId) },
+            set: { newValue in
+                var set = prefs.launchReminderBundleIds
+                if newValue { set.insert(bundleId) } else { set.remove(bundleId) }
+                prefs.launchReminderBundleIds = set
+            }
+        )
     }
 
     private func saveURL() {

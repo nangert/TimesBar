@@ -29,6 +29,12 @@ open /Applications/TimesBar.app
    xattr -dr com.apple.quarantine /Applications/TimesBar.app
    ```
 
+## Launch reminders
+
+**Settings → Launch reminders** turns on a one-time banner the first time you activate a dev tool without a Kimai timer running. Curated list out of the box (VS Code, Xcode, the JetBrains family, Zed, Cursor); per-app toggles let you trim it. The banner has a "Start last activity" action that restarts your most recent timesheet via `/restart?copy=all`. Debounce: at most one reminder per no-timer interval — start a timer and the next idle stretch becomes eligible again.
+
+Notification permission is requested when you first enable the master toggle. If you deny, grant it later from **System Settings → Notifications → TimesBar**.
+
 ## Languages
 
 English and German. TimesBar follows the macOS system language — set **System Settings → General → Language & Region** to Deutsch and relaunch.
@@ -49,6 +55,7 @@ TimesBar registers the `timesbar://` URL scheme so external tools (macOS Shortcu
 | `timesbar://startLast` | Resume your most recent timesheet via Kimai's `/restart?copy=all` (preserves description + tags). No-op if a timer is already running. |
 | `timesbar://toggle` | Same as the ⌘⌥T hotkey — stop if running, otherwise resume the most recent entry. |
 | `timesbar://pause` | Pause the running timer. Click Resume in the menu, or call `timesbar://startLast`, to pick up where you left off via `/restart?copy=all`. |
+| `timesbar://web` | Open your Kimai instance in the default browser. |
 
 From the Terminal:
 

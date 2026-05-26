@@ -313,6 +313,26 @@
         "de" : { "stringUnit" : { "state" : "translated", "value" : "Verstrichene Zeit behalten" } }
       }
     },
+    "Launch reminders" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Start-Erinnerungen" } }
+      }
+    },
+    "Open Kimai" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Kimai öffnen" } }
+      }
+    },
+    "Remind me to start a timer when I open dev tools" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Beim Öffnen von Dev-Tools an Timer-Start erinnern" } }
+      }
+    },
+    "You're using %@ but no timer is running." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Du nutzt %@, aber kein Timer läuft." } }
+      }
+    },
     "Kimai rejected the edit. The activity may not belong to that project." : {
       "localizations" : {
         "de" : { "stringUnit" : { "state" : "translated", "value" : "Kimai hat die Änderung abgelehnt. Die Tätigkeit gehört möglicherweise nicht zu diesem Projekt." } }
