@@ -13,6 +13,9 @@ enum URLAction: Equatable {
     /// Mirror the ⌘⌥T hotkey: stop if running, otherwise resume the most
     /// recent entry.
     case toggle
+    /// Pause the running timer — stops it and remembers the ID so the menu
+    /// bar's Resume affordance can `/restart?copy=all` later.
+    case pause
 }
 
 enum URLActionRouter {
@@ -27,6 +30,7 @@ enum URLActionRouter {
         case "stop":      return .stop
         case "startlast": return .startLast
         case "toggle":    return .toggle
+        case "pause":     return .pause
         default:          return nil
         }
     }
@@ -47,6 +51,9 @@ extension TimerStore {
             Task { _ = await resumeCheckingResult(timesheetId: id) }
         case .toggle:
             toggleTimer()
+        case .pause:
+            guard isRunning else { return }
+            Task { await pause() }
         }
     }
 }

@@ -5,7 +5,10 @@ struct ActiveTimerSection: View {
     let description: String?
     let elapsed: String
     var projectColor: Color = .kimaiGreen
+    let onPause: () -> Void
     let onStop: () -> Void
+    let onStopWithDescription: () -> Void
+    let onDiscard: () -> Void
     let onEdit: () -> Void
 
     var body: some View {
@@ -37,11 +40,19 @@ struct ActiveTimerSection: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
-            HStack(alignment: .firstTextBaseline) {
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text(elapsed)
                     .font(.system(size: 22, weight: .medium, design: .monospaced))
                     .tracking(1)
                 Spacer()
+                Button(action: onPause) {
+                    Label("Pause", systemImage: "pause.fill")
+                        .font(.system(size: 12, weight: .medium))
+                        .labelStyle(.titleAndIcon)
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help("Stop now; one-click resume copies project, activity, description, and tags")
                 Button(action: onStop) {
                     Label("Stop", systemImage: "stop.fill")
                         .font(.system(size: 12, weight: .medium))
@@ -50,6 +61,10 @@ struct ActiveTimerSection: View {
                 .buttonStyle(.bordered)
                 .tint(.kimaiStopTint)
                 .controlSize(.small)
+                .contextMenu {
+                    Button("Stop with description…", action: onStopWithDescription)
+                    Button("Discard & delete", role: .destructive, action: onDiscard)
+                }
             }
         }
     }
