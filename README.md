@@ -29,6 +29,10 @@ open /Applications/TimesBar.app
    xattr -dr com.apple.quarantine /Applications/TimesBar.app
    ```
 
+## Languages
+
+English and German. TimesBar follows the macOS system language — set **System Settings → General → Language & Region** to Deutsch and relaunch.
+
 ## Setup
 
 Click the timer icon in your menu bar. Paste a Kimai API token from your Kimai user profile (**Settings → API access**) and click **Verify & save**. The token is verified via `GET /api/ping` and stored in your login keychain.

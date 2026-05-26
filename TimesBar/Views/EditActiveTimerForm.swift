@@ -162,7 +162,7 @@ struct EditActiveTimerForm: View {
         let secs = max(0, Int(Date().timeIntervalSince(begin)))
         let h = secs / 3600
         let m = (secs % 3600) / 60
-        return String(format: "%dh %02dm elapsed", h, m)
+        return String(format: String(localized: "%dh %02dm elapsed"), h, m)
     }
 
     private var hint: String {
@@ -170,15 +170,15 @@ struct EditActiveTimerForm: View {
         let categoryChanged = projectId != initialProjectId
             || activityId != initialActivityId
         if beginChanged && categoryChanged {
-            return "Updates the running entry in place. Elapsed time will recalculate."
+            return String(localized: "Updates the running entry in place. Elapsed time will recalculate.")
         }
         if beginChanged {
-            return "Elapsed time will recalculate from the new begin."
+            return String(localized: "Elapsed time will recalculate from the new begin.")
         }
         if categoryChanged {
-            return "Updates the running entry in place — no restart, elapsed keeps ticking."
+            return String(localized: "Updates the running entry in place — no restart, elapsed keeps ticking.")
         }
-        return "Drag the green handle to shift begin. Use ± buttons for ±1min nudges."
+        return String(localized: "Drag the green handle to shift begin. Use ± buttons for ±1min nudges.")
     }
 
     private var canSave: Bool {
@@ -216,7 +216,7 @@ struct EditActiveTimerForm: View {
             if ok {
                 onSaved()
             } else {
-                errorMessage = "Kimai rejected the edit. The activity may not belong to that project."
+                errorMessage = String(localized: "Kimai rejected the edit. The activity may not belong to that project.")
             }
         }
     }

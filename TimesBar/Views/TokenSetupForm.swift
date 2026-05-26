@@ -97,7 +97,7 @@ struct TokenSetupForm: View {
         Task {
             let ok = await store.authenticate(with: trimmed)
             isVerifying = false
-            status = ok ? .success : .failure("Token rejected by Kimai.")
+            status = ok ? .success : .failure(String(localized: "Token rejected by Kimai."))
             if ok {
                 token = ""
                 onSaved()

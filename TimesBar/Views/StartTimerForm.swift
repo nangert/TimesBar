@@ -223,10 +223,10 @@ struct StartTimerForm: View {
     }
 
     private var submitLabel: String {
-        if isSubmitting { return "Saving…" }
-        if isPastEntry && hasEnd { return "Log" }
-        if isPastEntry { return "Start (backdated)" }
-        return "Start"
+        if isSubmitting { return String(localized: "Saving…") }
+        if isPastEntry && hasEnd { return String(localized: "Log") }
+        if isPastEntry { return String(localized: "Start (backdated)") }
+        return String(localized: "Start")
     }
 
     private var submitIcon: String {
@@ -242,9 +242,9 @@ struct StartTimerForm: View {
 
     private var footnote: String {
         if hasEnd {
-            return "Adds a completed entry. Drag the green band to move both ends; drag a handle to resize."
+            return String(localized: "Adds a completed entry. Drag the green band to move both ends; drag a handle to resize.")
         }
-        return "Starts a running timer backdated to the chosen begin time. Drag the handle to set begin."
+        return String(localized: "Starts a running timer backdated to the chosen begin time. Drag the handle to set begin.")
     }
 
     private static func defaultBegin() -> Date {
@@ -293,7 +293,7 @@ struct StartTimerForm: View {
             if ok {
                 onStarted()
             } else {
-                errorMessage = "Kimai rejected the request. The activity may not belong to that project."
+                errorMessage = String(localized: "Kimai rejected the request. The activity may not belong to that project.")
             }
         }
     }

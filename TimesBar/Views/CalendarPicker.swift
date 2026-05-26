@@ -5,13 +5,13 @@ import SwiftUI
 /// we don't use SwiftUI's `.compact` (tiny popover) or `.graphical` (cramped
 /// day cells), both of which are awkward to hit with a mouse.
 struct DateFieldRow: View {
-    let label: String
+    let label: LocalizedStringKey
     @Binding var date: Date
     let minDate: Date?
     let maxDate: Date?
     @Binding var isExpanded: Bool
 
-    init(label: String,
+    init(label: LocalizedStringKey,
          date: Binding<Date>,
          minDate: Date? = nil,
          maxDate: Date? = nil,

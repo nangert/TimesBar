@@ -457,12 +457,12 @@ struct TimeRangeBar: View {
 /// Compact read-out used below the TimeRangeBar — shows `HH:mm` with ±1min
 /// nudge buttons. Used for fine-tuning after a coarse drag.
 struct TimeNudgeField: View {
-    let label: String
+    let label: LocalizedStringKey
     @Binding var date: Date
     let minDate: Date?
     let maxDate: Date?
 
-    init(label: String,
+    init(label: LocalizedStringKey,
          date: Binding<Date>,
          minDate: Date? = nil,
          maxDate: Date? = nil) {

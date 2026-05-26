@@ -199,7 +199,7 @@ struct MonthlyBalanceView: View {
 
     private func monthName(_ month: Int) -> String {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
+        f.locale = .current
         return f.shortMonthSymbols[month - 1]
     }
 

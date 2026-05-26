@@ -227,7 +227,7 @@ struct EditTimesheetForm: View {
             if ok {
                 onSaved()
             } else {
-                errorMessage = "Kimai rejected the edit. The activity may not belong to that project."
+                errorMessage = String(localized: "Kimai rejected the edit. The activity may not belong to that project.")
             }
         }
     }
