@@ -148,7 +148,7 @@ struct SettingsView: View {
               let scheme = url.scheme,
               (scheme == "https" || scheme == "http"),
               url.host != nil else {
-            urlError = "Enter a valid URL starting with https:// or http://"
+            urlError = String(localized: "Enter a valid URL starting with https:// or http://")
             return
         }
 

@@ -19,7 +19,7 @@ extension View {
 
 /// Row with a fixed-width label and a trailing input — used in the inline forms.
 struct FormRow<Trailing: View>: View {
-    let label: String
+    let label: LocalizedStringKey
     @ViewBuilder let trailing: () -> Trailing
 
     var body: some View {
@@ -35,7 +35,7 @@ struct FormRow<Trailing: View>: View {
 
 /// Menu-backed picker that looks like the pill inputs.
 struct InlinePicker: View {
-    let placeholder: String
+    let placeholder: LocalizedStringKey
     let selectionTitle: String?
     let options: [(Int, String)]
     let onPick: (Int) -> Void
@@ -47,9 +47,16 @@ struct InlinePicker: View {
             }
         } label: {
             HStack {
-                Text(selectionTitle ?? placeholder)
-                    .foregroundStyle(selectionTitle == nil ? .secondary : .primary)
-                    .lineLimit(1)
+                Group {
+                    if let selectionTitle {
+                        Text(selectionTitle)
+                            .foregroundStyle(.primary)
+                    } else {
+                        Text(placeholder)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .lineLimit(1)
                 Spacer(minLength: 4)
                 Image(systemName: "chevron.up.chevron.down")
                     .font(.system(size: 9, weight: .medium))

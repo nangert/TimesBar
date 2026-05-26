@@ -1,0 +1,712 @@
+{
+  "sourceLanguage" : "en",
+  "version" : "1.0",
+  "strings" : {
+    " / %@" : {
+      "comment" : "Used / available (year breakdown row)",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : " / %@" } }
+      }
+    },
+    " / %@ days" : {
+      "comment" : "Used / total available vacation days",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : " / %@ Tage" } }
+      }
+    },
+    " · %@ over target" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : " · %@ über Ziel" } }
+      }
+    },
+    " · %@ to target" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : " · %@ bis Ziel" } }
+      }
+    },
+    "½ day" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "½ Tag" } }
+      }
+    },
+    "1 day" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "1 Tag" } }
+      }
+    },
+    "%@ days remaining" : {
+      "comment" : "Number of vacation days remaining",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "%@ Tage übrig" } }
+      }
+    },
+    "%@ today" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "%@ heute" } }
+      }
+    },
+    "%@ per week · from your Kimai profile" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "%@ pro Woche · aus deinem Kimai-Profil" } }
+      }
+    },
+    "%lld days/year · from your Kimai profile" : {
+      "comment" : "Vacation budget footnote",
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "%lld Tage/Jahr · aus deinem Kimai-Profil" } }
+      }
+    },
+    "%dh %02dm elapsed" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "%dh %02dm vergangen" } }
+      }
+    },
+    "absence.type.holiday" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Vacation" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Urlaub" } }
+      }
+    },
+    "absence.type.sickness" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sick" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Krankheit" } }
+      }
+    },
+    "absence.type.time_off" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Time off" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Zeitausgleich" } }
+      }
+    },
+    "absence.type.other" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Other" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Sonstiges" } }
+      }
+    },
+    "absence.type.parental" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Parental leave" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Elternzeit" } }
+      }
+    },
+    "absence.type.sickness_child" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Sick child" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Krankheit (Kind)" } }
+      }
+    },
+    "absence.type.unpaid_vacation" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Unpaid leave" } },
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Unbezahlter Urlaub" } }
+      }
+    },
+    "Active" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Aktiv" } }
+      }
+    },
+    "Activity" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Tätigkeit" } }
+      }
+    },
+    "Add a note to the timesheet, then stop." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Notiz hinzufügen, dann beenden." } }
+      }
+    },
+    "Add another…" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Weiteren hinzufügen…" } }
+      }
+    },
+    "Add tag…" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Tag hinzufügen…" } }
+      }
+    },
+    "Adds a completed entry. Drag the green band to move both ends; drag a handle to resize." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Fügt einen abgeschlossenen Eintrag hinzu. Den grünen Bereich verschieben, um beide Enden zu bewegen; einen Anfasser ziehen, um die Größe zu ändern." } }
+      }
+    },
+    "Auto-stop timer at end of day" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Timer am Ende des Tages automatisch beenden" } }
+      }
+    },
+    "Auto-stopped at %@" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Automatisch beendet um %@" } }
+      }
+    },
+    "Backdate stop" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Stopp zurückdatieren" } }
+      }
+    },
+    "Backdate stop to when I went idle" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Stopp auf Untätigkeitsbeginn zurückdatieren" } }
+      }
+    },
+    "Base URL" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Basis-URL" } }
+      }
+    },
+    "Begin" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Beginn" } }
+      }
+    },
+    "Behavior" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Verhalten" } }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Abbrechen" } }
+      }
+    },
+    "Cancel this absence" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Diese Abwesenheit stornieren" } }
+      }
+    },
+    "Connected." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Verbunden." } }
+      }
+    },
+    "Contract started %@ (from your Kimai profile)." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Vertrag begann am %@ (aus deinem Kimai-Profil)." } }
+      }
+    },
+    "Counting from %lld, your earliest timesheet." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Zählt ab %lld, deinem frühesten Zeiteintrag." } }
+      }
+    },
+    "Counting from the current year. Log timesheets across multiple years and TimesBar picks the earliest one up." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Zählt ab dem aktuellen Jahr. Wenn du Zeiteinträge in mehreren Jahren erfasst, erkennt TimesBar das früheste automatisch." } }
+      }
+    },
+    "Date" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Datum" } }
+      }
+    },
+    "Delete" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Löschen" } }
+      }
+    },
+    "Delete…" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Löschen…" } }
+      }
+    },
+    "Delete this entry?" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Diesen Eintrag löschen?" } }
+      }
+    },
+    "Description" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Beschreibung" } }
+      }
+    },
+    "Discard & delete" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Verwerfen und löschen" } }
+      }
+    },
+    "Discard this entry?" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Diesen Eintrag verwerfen?" } }
+      }
+    },
+    "Dismiss paused entry" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Pausierten Eintrag verwerfen" } }
+      }
+    },
+    "Drag the green handle to shift begin. Use ± buttons for ±1min nudges." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Den grünen Anfasser ziehen, um den Beginn zu verschieben. Mit ± in 1-Minuten-Schritten." } }
+      }
+    },
+    "Duplicate" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Duplizieren" } }
+      }
+    },
+    "Edit entry" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Eintrag bearbeiten" } }
+      }
+    },
+    "Edit running timer" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Aktiven Timer bearbeiten" } }
+      }
+    },
+    "Edit…" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Bearbeiten…" } }
+      }
+    },
+    "Elapsed time will recalculate from the new begin." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Die vergangene Zeit wird ab dem neuen Beginn neu berechnet." } }
+      }
+    },
+    "End" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Ende" } }
+      }
+    },
+    "Enter a valid URL starting with https:// or http://" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Bitte eine gültige URL mit https:// oder http:// eingeben" } }
+      }
+    },
+    "From" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Von" } }
+      }
+    },
+    "Global hotkey (⌘⌥T) toggles timer" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Globaler Hotkey (⌘⌥T) schaltet den Timer um" } }
+      }
+    },
+    "Half day" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Halber Tag" } }
+      }
+    },
+    "Idle since %@" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Untätig seit %@" } }
+      }
+    },
+    "Idle threshold (min)" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Schwelle (min)" } }
+      }
+    },
+    "Keep as-is" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Wie bisher" } }
+      }
+    },
+    "Keep elapsed time" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Verstrichene Zeit behalten" } }
+      }
+    },
+    "Kimai rejected the edit. The activity may not belong to that project." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Kimai hat die Änderung abgelehnt. Die Tätigkeit gehört möglicherweise nicht zu diesem Projekt." } }
+      }
+    },
+    "Kimai rejected the request. Check the date and try again." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Kimai hat die Anfrage abgelehnt. Datum prüfen und erneut versuchen." } }
+      }
+    },
+    "Kimai rejected the request. The activity may not belong to that project." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Kimai hat die Anfrage abgelehnt. Die Tätigkeit gehört möglicherweise nicht zu diesem Projekt." } }
+      }
+    },
+    "Kimai rejected the request. The activity may not belong to that project anymore." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Kimai hat die Anfrage abgelehnt. Die Tätigkeit gehört möglicherweise nicht mehr zu diesem Projekt." } }
+      }
+    },
+    "Launch at login" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Beim Anmelden starten" } }
+      }
+    },
+    "Loading…" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Lade…" } }
+      }
+    },
+    "Log" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Erfassen" } }
+      }
+    },
+    "Log entry" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Eintrag erfassen" } }
+      }
+    },
+    "Log past entry" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Vergangenen Eintrag erfassen" } }
+      }
+    },
+    "Mac slept %@" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Mac war %@ im Ruhezustand" } }
+      }
+    },
+    "Monthly balance" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Monatsbilanz" } }
+      }
+    },
+    "Monthly balance…" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Monatsbilanz…" } }
+      }
+    },
+    "Multi-day" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Mehrtägig" } }
+      }
+    },
+    "New timer" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Neuer Timer" } }
+      }
+    },
+    "No active timer" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Kein aktiver Timer" } }
+      }
+    },
+    "No recent entries" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Keine letzten Einträge" } }
+      }
+    },
+    "No time entries logged for %@." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Keine Zeiteinträge für %@ erfasst." } }
+      }
+    },
+    "Note" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Notiz" } }
+      }
+    },
+    "Nothing scheduled." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Nichts geplant." } }
+      }
+    },
+    "Open web" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Im Browser öffnen" } }
+      }
+    },
+    "Optional" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Optional" } }
+      }
+    },
+    "Pause" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Pause" } }
+      }
+    },
+    "Paused" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Pausiert" } }
+      }
+    },
+    "paste here" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "hier einfügen" } }
+      }
+    },
+    "Paste a Kimai API token from Settings → API access at times.lipsum.services." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Kimai-API-Token aus Einstellungen → API-Zugang bei times.lipsum.services einfügen." } }
+      }
+    },
+    "Project" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Projekt" } }
+      }
+    },
+    "Prompt when idle" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Bei Untätigkeit fragen" } }
+      }
+    },
+    "prorated" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "anteilig" } }
+      }
+    },
+    "Quick start" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Schnellstart" } }
+      }
+    },
+    "Quit TimesBar" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "TimesBar beenden" } }
+      }
+    },
+    "Recent" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Zuletzt" } }
+      }
+    },
+    "Replace the saved Kimai API token, or sign out." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Gespeichertes Kimai-API-Token ersetzen oder abmelden." } }
+      }
+    },
+    "Request time off" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Abwesenheit beantragen" } }
+      }
+    },
+    "Resume" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Fortsetzen" } }
+      }
+    },
+    "Save" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Speichern" } }
+      }
+    },
+    "Save & stop" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Speichern und beenden" } }
+      }
+    },
+    "Save URL" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "URL speichern" } }
+      }
+    },
+    "Saving…" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Speichere…" } }
+      }
+    },
+    "Select activity…" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Tätigkeit wählen…" } }
+      }
+    },
+    "Select project…" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Projekt wählen…" } }
+      }
+    },
+    "Server" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Server" } }
+      }
+    },
+    "Set end time" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Endzeit festlegen" } }
+      }
+    },
+    "Settings" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Einstellungen" } }
+      }
+    },
+    "Sign in" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Anmelden" } }
+      }
+    },
+    "Sign out" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Abmelden" } }
+      }
+    },
+    "Sleep %@ → Wake %@" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Ruhe %@ → Wachen %@" } }
+      }
+    },
+    "Split at wake" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Beim Aufwachen teilen" } }
+      }
+    },
+    "Start" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Starten" } }
+      }
+    },
+    "Start (backdated)" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Starten (rückdatiert)" } }
+      }
+    },
+    "Start last activity" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Letzte Tätigkeit starten" } }
+      }
+    },
+    "Start new" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Neuer Eintrag" } }
+      }
+    },
+    "Starts a running timer backdated to the chosen begin time. Drag the handle to set begin." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Startet einen laufenden Timer rückdatiert auf die gewählte Startzeit. Anfasser ziehen, um den Beginn zu setzen." } }
+      }
+    },
+    "Stop" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Stopp" } }
+      }
+    },
+    "Stop at" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Stoppen um" } }
+      }
+    },
+    "Stop now; one-click resume copies project, activity, description, and tags" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Jetzt beenden; ein Klick auf Fortsetzen kopiert Projekt, Tätigkeit, Beschreibung und Tags" } }
+      }
+    },
+    "Stop the timer and permanently delete the entry. This cannot be undone." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Timer beenden und Eintrag dauerhaft löschen. Das kann nicht rückgängig gemacht werden." } }
+      }
+    },
+    "Stop timer" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Timer stoppen" } }
+      }
+    },
+    "Stop with description" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Mit Beschreibung beenden" } }
+      }
+    },
+    "Stop with description…" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Mit Beschreibung beenden…" } }
+      }
+    },
+    "Submit" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Senden" } }
+      }
+    },
+    "Submitting…" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Sende…" } }
+      }
+    },
+    "Tags" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Tags" } }
+      }
+    },
+    "This entry will be permanently removed from Kimai." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Dieser Eintrag wird dauerhaft aus Kimai entfernt." } }
+      }
+    },
+    "Time off" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Abwesenheit" } }
+      }
+    },
+    "Time off…" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Abwesenheit…" } }
+      }
+    },
+    "To" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Bis" } }
+      }
+    },
+    "Today" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Heute" } }
+      }
+    },
+    "Token" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Token" } }
+      }
+    },
+    "Token rejected by Kimai." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Token von Kimai abgelehnt." } }
+      }
+    },
+    "Type" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Art" } }
+      }
+    },
+    "Undo" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Rückgängig" } }
+      }
+    },
+    "Upcoming" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Bevorstehend" } }
+      }
+    },
+    "Updates the running entry in place — no restart, elapsed keeps ticking." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Aktualisiert den laufenden Eintrag direkt — kein Neustart, die Zeit läuft weiter." } }
+      }
+    },
+    "Updates the running entry in place. Elapsed time will recalculate." : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Aktualisiert den laufenden Eintrag direkt. Die vergangene Zeit wird neu berechnet." } }
+      }
+    },
+    "Vacation" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Urlaub" } }
+      }
+    },
+    "Verify & save" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Prüfen und speichern" } }
+      }
+    },
+    "Verifying…" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Prüfe…" } }
+      }
+    },
+    "Year" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Jahr" } }
+      }
+    },
+    "You've been idle for %@" : {
+      "localizations" : {
+        "de" : { "stringUnit" : { "state" : "translated", "value" : "Du warst %@ untätig" } }
+      }
+    }
+  }
+}

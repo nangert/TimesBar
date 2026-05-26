@@ -170,7 +170,7 @@ struct MenuBarView: View {
                             // copied automatically (`copy=all`).
                             let ok = await store.resumeCheckingResult(timesheetId: item.id)
                             if !ok {
-                                quickStartError = "Kimai rejected the request. The activity may not belong to that project anymore."
+                                quickStartError = String(localized: "Kimai rejected the request. The activity may not belong to that project anymore.")
                             }
                         }
                     },

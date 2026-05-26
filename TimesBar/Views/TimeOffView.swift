@@ -57,7 +57,7 @@ struct TimeOffView: View {
         let breakdown = store.vacationBreakdown
         return VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
-                SectionHeader(text: "Urlaub")
+                SectionHeader(text: "Vacation")
                 Spacer()
                 HStack(spacing: 0) {
                     Text(formatDays(used))
@@ -77,7 +77,7 @@ struct TimeOffView: View {
                 }
             }
             .frame(height: 4)
-            Text("\(formatDays(store.vacationRemainingDays)) days remaining")
+            Text("\(formatDays(store.vacationRemainingDays)) days remaining", comment: "Number of vacation days remaining")
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
 
@@ -192,12 +192,12 @@ struct TimeOffView: View {
 
             FormRow(label: "Type") {
                 Menu {
-                    Button("Urlaub") { requestType = "holiday" }
-                    Button("Zeitausgleich") { requestType = "time_off" }
-                    Button("Krankheit") { requestType = "sickness" }
-                    Button("Elternzeit") { requestType = "parental" }
-                    Button("Unbezahlter Urlaub") { requestType = "unpaid_vacation" }
-                    Button("Sonstiges") { requestType = "other" }
+                    Button(typeLabel("holiday")) { requestType = "holiday" }
+                    Button(typeLabel("time_off")) { requestType = "time_off" }
+                    Button(typeLabel("sickness")) { requestType = "sickness" }
+                    Button(typeLabel("parental")) { requestType = "parental" }
+                    Button(typeLabel("unpaid_vacation")) { requestType = "unpaid_vacation" }
+                    Button(typeLabel("other")) { requestType = "other" }
                 } label: {
                     HStack {
                         Text(typeLabel(requestType))
@@ -330,7 +330,7 @@ struct TimeOffView: View {
             if ok {
                 showingRequestForm = false
             } else {
-                requestError = "Kimai rejected the request. Check the date and try again."
+                requestError = String(localized: "Kimai rejected the request. Check the date and try again.")
             }
         }
     }
@@ -341,7 +341,7 @@ struct TimeOffView: View {
                 Image(systemName: "checkmark.seal")
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
-                Text("\(store.vacationBudgetDays) days/year · from your Kimai profile")
+                Text("\(store.vacationBudgetDays) days/year · from your Kimai profile", comment: "Vacation budget footnote")
                     .font(.system(size: 10))
                     .foregroundStyle(.secondary)
             }
@@ -356,13 +356,17 @@ struct TimeOffView: View {
         if let start = store.contractStartDate {
             let f = DateFormatter()
             f.dateFormat = "d MMM yyyy"
-            f.locale = Locale(identifier: "en_US_POSIX")
-            return "Contract started \(f.string(from: start)) (from your Kimai profile)."
+            f.locale = .current
+            return String(
+                format: String(localized: "Contract started %@ (from your Kimai profile)."),
+                f.string(from: start))
         }
         if let detected = store.detectedFirstTimesheetYear {
-            return "Counting from \(detected), your earliest timesheet."
+            return String(
+                format: String(localized: "Counting from %lld, your earliest timesheet."),
+                detected)
         }
-        return "Counting from the current year. Log timesheets across multiple years and TimesBar picks the earliest one up."
+        return String(localized: "Counting from the current year. Log timesheets across multiple years and TimesBar picks the earliest one up.")
     }
 
     // MARK: - Helpers
@@ -382,13 +386,13 @@ struct TimeOffView: View {
 
     private func typeLabel(_ type: String) -> String {
         switch type.lowercased() {
-        case "holiday": return "Urlaub"
-        case "sick", "sickness": return "Krankheit"
-        case "freecompensation", "free_compensation", "time_off": return "Zeitausgleich"
-        case "other": return "Sonstiges"
-        case "parental": return "Elternzeit"
-        case "sickness_child": return "Krankheit (Kind)"
-        case "unpaid_vacation": return "Unbezahlter Urlaub"
+        case "holiday": return String(localized: "absence.type.holiday")
+        case "sick", "sickness": return String(localized: "absence.type.sickness")
+        case "freecompensation", "free_compensation", "time_off": return String(localized: "absence.type.time_off")
+        case "other": return String(localized: "absence.type.other")
+        case "parental": return String(localized: "absence.type.parental")
+        case "sickness_child": return String(localized: "absence.type.sickness_child")
+        case "unpaid_vacation": return String(localized: "absence.type.unpaid_vacation")
         default: return type.prefix(1).uppercased() + type.dropFirst()
         }
     }
