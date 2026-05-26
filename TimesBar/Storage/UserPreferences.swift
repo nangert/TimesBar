@@ -17,6 +17,8 @@ private let defaultIdleThresholdMinutes = 15
 
 private let hotkeyEnabledKey = "hotkeyEnabled"
 
+private let pausedEntryIdKey = "pausedEntryId"
+
 @MainActor
 final class UserPreferences: ObservableObject {
     static let shared = UserPreferences()
@@ -57,6 +59,20 @@ final class UserPreferences: ObservableObject {
         }
     }
 
+    /// ID of the timesheet the user paused — set by `TimerStore.pause()`, cleared
+    /// when the user resumes it, starts something else, or signs out. `nil` means
+    /// there is no paused entry to resume. Survives app relaunches so a Mac
+    /// reboot in the middle of a pause still surfaces the Resume affordance.
+    @Published var pausedEntryId: Int? {
+        didSet {
+            if let id = pausedEntryId {
+                UserDefaults.standard.set(id, forKey: pausedEntryIdKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: pausedEntryIdKey)
+            }
+        }
+    }
+
     /// The time of day at which a running timer is automatically stopped.
     /// Persisted as two integers (hour, minute). Defaults to 19:00.
     @Published var autoStopTime: DateComponents {
@@ -88,6 +104,12 @@ final class UserPreferences: ObservableObject {
             idleThresholdMinutes = UserDefaults.standard.integer(forKey: idleThresholdMinutesKey)
         } else {
             idleThresholdMinutes = defaultIdleThresholdMinutes
+        }
+
+        if UserDefaults.standard.object(forKey: pausedEntryIdKey) != nil {
+            pausedEntryId = UserDefaults.standard.integer(forKey: pausedEntryIdKey)
+        } else {
+            pausedEntryId = nil
         }
 
         let storedHour: Int

@@ -2,7 +2,7 @@
 
 A native macOS menu bar app for [Kimai](https://www.kimai.org/) time tracking.
 
-Live active timer with an elapsed counter in the menu bar dropdown, one-click stop, quick-start from recent entries, an inline form for starting fresh sessions, daily progress against an 8h target, and a weekly bar chart of clocked hours — all inside a SwiftUI `MenuBarExtra`. The Kimai API token lives in the macOS Keychain.
+Live active timer with an elapsed counter in the menu bar dropdown, one-click stop / pause / stop-with-description / discard, quick-start from recent entries, an inline form for starting fresh sessions, daily progress against an 8h target, and a weekly bar chart of clocked hours — all inside a SwiftUI `MenuBarExtra`. The Kimai API token lives in the macOS Keychain.
 
 ## Install
 
@@ -44,6 +44,7 @@ TimesBar registers the `timesbar://` URL scheme so external tools (macOS Shortcu
 | `timesbar://stop` | Stop the running timer. No-op if nothing is running. |
 | `timesbar://startLast` | Resume your most recent timesheet via Kimai's `/restart?copy=all` (preserves description + tags). No-op if a timer is already running. |
 | `timesbar://toggle` | Same as the ⌘⌥T hotkey — stop if running, otherwise resume the most recent entry. |
+| `timesbar://pause` | Pause the running timer. Click Resume in the menu, or call `timesbar://startLast`, to pick up where you left off via `/restart?copy=all`. |
 
 From the Terminal:
 

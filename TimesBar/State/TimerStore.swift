@@ -513,6 +513,7 @@ final class TimerStore: ObservableObject {
         pendingSleepReconciliation = nil
         pendingIdlePrompt = nil
         autoStopToast = nil
+        UserPreferences.shared.pausedEntryId = nil
     }
 
     /// Tear down live state when Kimai stops accepting the token. Mirrors
@@ -689,6 +690,65 @@ final class TimerStore: ObservableObject {
         await refresh()
     }
 
+    // MARK: - Pause / Resume
+
+    /// Stop the running timer and remember its ID so the user can one-click
+    /// resume later. Kimai 2 has no native pause endpoint — we model pause as
+    /// stop + a UI affordance to `/restart?copy=all` the same entry.
+    func pause() async {
+        guard let entry = active else { return }
+        let id = entry.id
+        await stop()
+        // Only set the paused-state after stop returns — if the stop failed
+        // (network/auth), the entry is still running and there's nothing to
+        // resume, so leaving pausedEntryId unset is the correct outcome.
+        guard active == nil else { return }
+        UserPreferences.shared.pausedEntryId = id
+    }
+
+    /// Resume the previously paused timesheet via Kimai's `/restart?copy=all`.
+    /// No-op if no paused entry is on file. Clears the paused-state on success.
+    func resumePaused() async {
+        guard let id = UserPreferences.shared.pausedEntryId else { return }
+        _ = await resumeCheckingResult(timesheetId: id)
+    }
+
+    /// Dismiss the Resume banner without restarting — for the case where the
+    /// user changes their mind and doesn't want the paused entry to keep
+    /// occupying menu space.
+    func dismissPaused() {
+        UserPreferences.shared.pausedEntryId = nil
+    }
+
+    // MARK: - Stop variants
+
+    /// Stop the running timer with an explicit description. Sends a single
+    /// PATCH with both `end` and `description` set, so the recorded note and
+    /// stop time land atomically.
+    func stopWithDescription(_ description: String) async {
+        guard let client, let entry = active else { return }
+        let id = entry.id
+        let now = Date()
+        _ = await tryAuth {
+            try await client.updateTimesheet(
+                id: id,
+                end: now,
+                description: description)
+        }
+        await refresh()
+    }
+
+    /// Stop and delete the running timer in one go — for the "I started this
+    /// by accident" case. Stops first because Kimai 2 rejects DELETE on a
+    /// running timesheet.
+    func discardActive() async {
+        guard let client, let entry = active else { return }
+        let id = entry.id
+        _ = await tryAuth { try await client.stop(id: id) }
+        _ = await tryAuth { try await client.deleteTimesheet(id: id) }
+        await refresh()
+    }
+
     /// Toggle the running timer via the global hotkey.
     ///
     /// Decision table:
@@ -767,6 +827,7 @@ final class TimerStore: ObservableObject {
         do {
             _ = try await client.start(project: project, activity: activity, description: description, tags: tags)
             await refresh()
+            UserPreferences.shared.pausedEntryId = nil
             return true
         } catch KimaiError.unauthorized {
             handleUnauthorized()
@@ -798,6 +859,7 @@ final class TimerStore: ObservableObject {
                 description: description,
                 tags: tags)
             await refresh()
+            UserPreferences.shared.pausedEntryId = nil
             return true
         } catch KimaiError.unauthorized {
             handleUnauthorized()
@@ -909,6 +971,7 @@ final class TimerStore: ObservableObject {
         do {
             _ = try await client.restart(id: timesheetId, copyAll: true)
             await refresh()
+            UserPreferences.shared.pausedEntryId = nil
             return true
         } catch KimaiError.unauthorized {
             handleUnauthorized()
