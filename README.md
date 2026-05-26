@@ -35,6 +35,24 @@ Click the timer icon in your menu bar. Paste a Kimai API token from your Kimai u
 
 To point TimesBar at a different Kimai install, open **Settings → Server** and enter your instance base URL.
 
+## URL schemes
+
+TimesBar registers the `timesbar://` URL scheme so external tools (macOS Shortcuts, Alfred, Raycast, BetterTouchTool, the Terminal) can drive the timer without going through the menu bar dropdown.
+
+| URL | Behavior |
+|-----|----------|
+| `timesbar://stop` | Stop the running timer. No-op if nothing is running. |
+| `timesbar://startLast` | Resume your most recent timesheet via Kimai's `/restart?copy=all` (preserves description + tags). No-op if a timer is already running. |
+| `timesbar://toggle` | Same as the ⌘⌥T hotkey — stop if running, otherwise resume the most recent entry. |
+
+From the Terminal:
+
+```bash
+open "timesbar://toggle"
+```
+
+From a macOS Shortcut, add the **Open URLs** action, paste the URL, and assign a keyboard shortcut via the **ⓘ** menu.
+
 ## Development
 
 ```bash

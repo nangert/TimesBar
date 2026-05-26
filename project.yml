@@ -24,6 +24,11 @@ targets:
         CFBundleName: TimesBar
         CFBundleShortVersionString: "0.5.0"
         CFBundleVersion: "5"
+        CFBundleURLTypes:
+          - CFBundleTypeRole: Editor
+            CFBundleURLName: bar.times.TimesBar.url
+            CFBundleURLSchemes:
+              - timesbar
     entitlements:
       path: TimesBar/TimesBar.entitlements
       properties:
