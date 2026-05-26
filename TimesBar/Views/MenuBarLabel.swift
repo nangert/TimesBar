@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct MenuBarLabel: View {
@@ -31,6 +32,16 @@ struct MenuBarLabel: View {
                 Task { await store.stop() }
             }
             .disabled(store.active == nil)
+
+            Divider()
+
+            // Open the configured Kimai instance in the user's default browser —
+            // matches kimai-clock's "long-press the menu bar icon" gesture without
+            // requiring a NSStatusItem rewrite (MenuBarExtra can't intercept the
+            // long-press cleanly).
+            Button("Open Kimai") {
+                NSWorkspace.shared.open(UserPreferences.shared.baseURL)
+            }
 
             // "Log past entry…" is intentionally omitted in v1: MenuBarExtra does not
             // expose a programmatic API to open its window from a context-menu action,

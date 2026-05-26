@@ -55,6 +55,7 @@ final class TimerStore: ObservableObject {
 
     private var idleMonitor: IdleMonitor?
     private var hotkeyManager: HotkeyManager?
+    private var launchReminderObserver: LaunchReminderObserver?
 
     // MARK: - Sleep reconciliation
 
@@ -325,6 +326,20 @@ final class TimerStore: ObservableObject {
         }
     }
 
+    /// Start or stop the launch-reminder observer based on the current
+    /// `launchReminderEnabled` preference. Call from SettingsView when the
+    /// toggle changes, and on app launch to restore the previous setting.
+    func applyLaunchReminderPref() {
+        launchReminderObserver?.stop()
+        launchReminderObserver = nil
+        guard UserPreferences.shared.launchReminderEnabled else { return }
+        let observer = LaunchReminderObserver()
+        observer.store = self
+        observer.start()
+        launchReminderObserver = observer
+        NotificationActionHandler.shared.store = self
+    }
+
     /// Register or unregister the ⌘⌥T global hotkey based on the current
     /// `hotkeyEnabled` preference. Call this from SettingsView when the toggle
     /// changes, and on app launch to restore the previous setting.
@@ -466,6 +481,7 @@ final class TimerStore: ObservableObject {
                 await refresh()
             }
             startTimers()
+            applyLaunchReminderPref()
         } else {
             isAuthenticated = false
         }
@@ -509,6 +525,8 @@ final class TimerStore: ObservableObject {
         idleMonitor = nil
         hotkeyManager?.unregister()
         hotkeyManager = nil
+        launchReminderObserver?.stop()
+        launchReminderObserver = nil
         sleepSnapshot = nil
         pendingSleepReconciliation = nil
         pendingIdlePrompt = nil
@@ -554,6 +572,7 @@ final class TimerStore: ObservableObject {
         await detectFirstTimesheetYear()
         await refresh()
         startTimers()
+        applyLaunchReminderPref()
         return true
     }
 
@@ -828,6 +847,7 @@ final class TimerStore: ObservableObject {
             _ = try await client.start(project: project, activity: activity, description: description, tags: tags)
             await refresh()
             UserPreferences.shared.pausedEntryId = nil
+            launchReminderObserver?.timerStarted()
             return true
         } catch KimaiError.unauthorized {
             handleUnauthorized()
@@ -860,6 +880,9 @@ final class TimerStore: ObservableObject {
                 tags: tags)
             await refresh()
             UserPreferences.shared.pausedEntryId = nil
+            // Only reset the launch-reminder debounce for entries that are
+            // running — completed past entries don't count as "starting work".
+            if end == nil { launchReminderObserver?.timerStarted() }
             return true
         } catch KimaiError.unauthorized {
             handleUnauthorized()
@@ -972,6 +995,7 @@ final class TimerStore: ObservableObject {
             _ = try await client.restart(id: timesheetId, copyAll: true)
             await refresh()
             UserPreferences.shared.pausedEntryId = nil
+            launchReminderObserver?.timerStarted()
             return true
         } catch KimaiError.unauthorized {
             handleUnauthorized()

@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 /// Action a `timesbar://` deep link maps to.
@@ -16,6 +17,8 @@ enum URLAction: Equatable {
     /// Pause the running timer — stops it and remembers the ID so the menu
     /// bar's Resume affordance can `/restart?copy=all` later.
     case pause
+    /// Open the configured Kimai web UI in the user's default browser.
+    case openWeb
 }
 
 enum URLActionRouter {
@@ -31,6 +34,7 @@ enum URLActionRouter {
         case "startlast": return .startLast
         case "toggle":    return .toggle
         case "pause":     return .pause
+        case "web":       return .openWeb
         default:          return nil
         }
     }
@@ -54,6 +58,8 @@ extension TimerStore {
         case .pause:
             guard isRunning else { return }
             Task { await pause() }
+        case .openWeb:
+            NSWorkspace.shared.open(UserPreferences.shared.baseURL)
         }
     }
 }

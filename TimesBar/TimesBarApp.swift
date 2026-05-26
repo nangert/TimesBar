@@ -1,10 +1,18 @@
 import SwiftUI
+import UserNotifications
 
 @main
 struct TimesBarApp: App {
     @StateObject private var store = TimerStore()
     // Held for app lifetime so sleep/wake notifications keep firing.
     @State private var sleepObserver: SleepObserver?
+
+    init() {
+        // Register notification category + delegate before any reminder fires.
+        // The delegate is a singleton so its lifetime matches the app.
+        UNUserNotificationCenter.current().delegate = NotificationActionHandler.shared
+        LaunchReminderObserver.registerCategories()
+    }
 
     var body: some Scene {
         MenuBarExtra {

@@ -19,6 +19,40 @@ private let hotkeyEnabledKey = "hotkeyEnabled"
 
 private let pausedEntryIdKey = "pausedEntryId"
 
+private let launchReminderEnabledKey = "launchReminderEnabled"
+private let launchReminderBundleIdsKey = "launchReminderBundleIds"
+
+/// Curated default set of dev-tool bundle IDs that trigger a "you don't have
+/// a timer running" reminder on first activation. The user can opt apps in
+/// or out via SettingsView; this is the seed list on first launch.
+let defaultLaunchReminderBundleIds: Set<String> = [
+    "com.microsoft.VSCode",       // VS Code
+    "com.apple.dt.Xcode",         // Xcode
+    "com.jetbrains.PhpStorm",     // PhpStorm
+    "com.jetbrains.intellij",     // IntelliJ IDEA (Ultimate)
+    "com.jetbrains.intellij.ce",  // IntelliJ IDEA (CE)
+    "com.jetbrains.PyCharm",      // PyCharm Professional
+    "com.jetbrains.WebStorm",     // WebStorm
+    "com.jetbrains.goland",       // GoLand
+    "dev.zed.Zed",                // Zed
+    "com.todesktop.230313mzl4w4u92", // Cursor
+]
+
+/// User-facing display labels for the bundle IDs we know about. Unknown
+/// bundle IDs fall back to NSRunningApplication.localizedName at runtime.
+let launchReminderKnownApps: [(bundleId: String, label: String)] = [
+    ("com.microsoft.VSCode", "Visual Studio Code"),
+    ("com.apple.dt.Xcode", "Xcode"),
+    ("com.jetbrains.PhpStorm", "PhpStorm"),
+    ("com.jetbrains.intellij", "IntelliJ IDEA"),
+    ("com.jetbrains.intellij.ce", "IntelliJ IDEA CE"),
+    ("com.jetbrains.PyCharm", "PyCharm"),
+    ("com.jetbrains.WebStorm", "WebStorm"),
+    ("com.jetbrains.goland", "GoLand"),
+    ("dev.zed.Zed", "Zed"),
+    ("com.todesktop.230313mzl4w4u92", "Cursor"),
+]
+
 @MainActor
 final class UserPreferences: ObservableObject {
     static let shared = UserPreferences()
@@ -56,6 +90,26 @@ final class UserPreferences: ObservableObject {
     @Published var idleThresholdMinutes: Int {
         didSet {
             UserDefaults.standard.set(idleThresholdMinutes, forKey: idleThresholdMinutesKey)
+        }
+    }
+
+    /// Whether the "remind me to start a timer when I open VS Code/Xcode/…"
+    /// banner is active. Off by default — gated on a User Notifications
+    /// permission prompt the first time the user enables it.
+    @Published var launchReminderEnabled: Bool {
+        didSet {
+            UserDefaults.standard.set(launchReminderEnabled, forKey: launchReminderEnabledKey)
+        }
+    }
+
+    /// Bundle IDs whose activation should trigger the reminder. Persisted as
+    /// a comma-separated string so the underlying UserDefaults entry stays
+    /// trivially debuggable from `defaults read`.
+    @Published var launchReminderBundleIds: Set<String> {
+        didSet {
+            UserDefaults.standard.set(
+                launchReminderBundleIds.sorted().joined(separator: ","),
+                forKey: launchReminderBundleIdsKey)
         }
     }
 
@@ -110,6 +164,15 @@ final class UserPreferences: ObservableObject {
             pausedEntryId = UserDefaults.standard.integer(forKey: pausedEntryIdKey)
         } else {
             pausedEntryId = nil
+        }
+
+        launchReminderEnabled = UserDefaults.standard.bool(forKey: launchReminderEnabledKey)
+
+        if let csv = UserDefaults.standard.string(forKey: launchReminderBundleIdsKey) {
+            launchReminderBundleIds = Set(
+                csv.split(separator: ",").map { String($0) }.filter { !$0.isEmpty })
+        } else {
+            launchReminderBundleIds = defaultLaunchReminderBundleIds
         }
 
         let storedHour: Int
