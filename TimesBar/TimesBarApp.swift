@@ -26,6 +26,11 @@ struct TimesBarApp: App {
                     // Restore the global hotkey if it was enabled in a prior session.
                     store.applyHotkeyPref()
                 }
+                .onOpenURL { url in
+                    if let action = URLActionRouter.parse(url) {
+                        store.handle(urlAction: action)
+                    }
+                }
         } label: {
             MenuBarLabel()
                 .environmentObject(store)
