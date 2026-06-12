@@ -498,6 +498,30 @@ final class TimerStore: ObservableObject {
         }
     }
 
+    /// Run a mutating client call and `refresh()` on success — or the supplied
+    /// alternative refresh, for mutations whose effects live outside the main
+    /// timesheet state (absences). Returns false when no client is configured,
+    /// when Kimai rejects the call, or on any transport error; 401/403
+    /// additionally tears down the auth state via `handleUnauthorized()`.
+    private func perform(_ op: (KimaiClient) async throws -> Void,
+                         thenRefresh after: (() async -> Void)? = nil) async -> Bool {
+        guard let client else { return false }
+        do {
+            try await op(client)
+            if let after {
+                await after()
+            } else {
+                await refresh()
+            }
+            return true
+        } catch KimaiError.unauthorized {
+            handleUnauthorized()
+            return false
+        } catch {
+            return false
+        }
+    }
+
     /// Tear down all ephemeral state shared by `signOut()` and
     /// `handleUnauthorized()`: timers, hotkey, idle monitor, and any pending
     /// UI prompts that reference in-flight Kimai operations.
@@ -515,13 +539,11 @@ final class TimerStore: ObservableObject {
         autoStopToast = nil
     }
 
-    /// Tear down live state when Kimai stops accepting the token. Mirrors
-    /// `signOut()` but keeps the Keychain entry — the user may want to paste
-    /// a fresh token and continue, and we don't know if the old one is just
-    /// temporarily revoked vs. permanently gone.
-    private func handleUnauthorized() {
-        guard isAuthenticated else { return }
-        NSLog("TimesBar: Kimai rejected the token (401/403); returning to sign-in")
+    /// Shared "the session is over" teardown: stop timers/monitors, drop
+    /// pending prompts, and clear the live per-session state. Cache-ish data
+    /// (directory titles, userMe, absences, tags) is left to the callers —
+    /// sign-out wipes it, a 401 keeps it for a quick re-auth.
+    private func resetLiveSessionState() {
         teardownEphemeralState()
         client = nil
         active = nil
@@ -531,6 +553,16 @@ final class TimerStore: ObservableObject {
         recent = []
         loadingYear = nil
         isAuthenticated = false
+    }
+
+    /// Tear down live state when Kimai stops accepting the token. Mirrors
+    /// `signOut()` but keeps the Keychain entry — the user may want to paste
+    /// a fresh token and continue, and we don't know if the old one is just
+    /// temporarily revoked vs. permanently gone.
+    private func handleUnauthorized() {
+        guard isAuthenticated else { return }
+        NSLog("TimesBar: Kimai rejected the token (401/403); returning to sign-in")
+        resetLiveSessionState()
     }
 
     func authenticate(with token: String) async -> Bool {
@@ -610,40 +642,24 @@ final class TimerStore: ObservableObject {
                         type: String,
                         halfDay: Bool,
                         comment: String?) async -> Bool {
-        guard let client, let userId = userMe?.id else { return false }
-        do {
-            _ = try await client.createAbsence(
+        guard let userId = userMe?.id else { return false }
+        return await perform({
+            _ = try await $0.createAbsence(
                 user: userId,
                 date: date,
                 end: end,
                 type: type,
                 halfDay: halfDay,
                 comment: comment)
-            await refreshAbsences()
-            return true
-        } catch KimaiError.unauthorized {
-            handleUnauthorized()
-            return false
-        } catch {
-            return false
-        }
+        }, thenRefresh: { await self.refreshAbsences() })
     }
 
     /// Cancel an absence by ID. Refreshes the absence list on success so the
     /// row disappears from the Upcoming list without a manual reload.
     @discardableResult
     func cancelAbsence(id: Int) async -> Bool {
-        guard let client else { return false }
-        do {
-            try await client.deleteAbsence(id: id)
-            await refreshAbsences()
-            return true
-        } catch KimaiError.unauthorized {
-            handleUnauthorized()
-            return false
-        } catch {
-            return false
-        }
+        await perform({ try await $0.deleteAbsence(id: id) },
+                      thenRefresh: { await self.refreshAbsences() })
     }
 
     /// Fetch approved absences from the tracking start year through the end
@@ -664,21 +680,13 @@ final class TimerStore: ObservableObject {
 
     func signOut() {
         TokenStore().delete()
-        teardownEphemeralState()
-        client = nil
-        active = nil
-        weekHours = Array(repeating: 0, count: 7)
-        weekProjectHours = Array(repeating: [], count: 7)
-        elapsedString = "--:--:--"
-        isAuthenticated = false
-        recent = []
+        resetLiveSessionState()
         projectTitles = [:]
         projectColors = [:]
         activityTitles = [:]
         absences = []
         knownTags = []
         yearlyData = nil
-        loadingYear = nil
         detectedFirstTimesheetYear = nil
         userMe = nil
     }
@@ -763,16 +771,8 @@ final class TimerStore: ObservableObject {
 
     @discardableResult
     func startCheckingResult(project: Int, activity: Int, description: String?, tags: [String]? = nil) async -> Bool {
-        guard let client else { return false }
-        do {
-            _ = try await client.start(project: project, activity: activity, description: description, tags: tags)
-            await refresh()
-            return true
-        } catch KimaiError.unauthorized {
-            handleUnauthorized()
-            return false
-        } catch {
-            return false
+        await perform {
+            _ = try await $0.start(project: project, activity: activity, description: description, tags: tags)
         }
     }
 
@@ -788,22 +788,14 @@ final class TimerStore: ObservableObject {
                   end: Date?,
                   description: String?,
                   tags: [String]? = nil) async -> Bool {
-        guard let client else { return false }
-        do {
-            _ = try await client.createTimesheet(
+        await perform {
+            _ = try await $0.createTimesheet(
                 begin: begin,
                 end: end,
                 project: project,
                 activity: activity,
                 description: description,
                 tags: tags)
-            await refresh()
-            return true
-        } catch KimaiError.unauthorized {
-            handleUnauthorized()
-            return false
-        } catch {
-            return false
         }
     }
 
@@ -817,9 +809,8 @@ final class TimerStore: ObservableObject {
                          end: Date? = nil,
                          description: String? = nil,
                          tags: [String]? = nil) async -> Bool {
-        guard let client else { return false }
-        do {
-            _ = try await client.updateTimesheet(
+        await perform {
+            _ = try await $0.updateTimesheet(
                 id: id,
                 project: project,
                 activity: activity,
@@ -827,47 +818,20 @@ final class TimerStore: ObservableObject {
                 end: end,
                 description: description,
                 tags: tags)
-            await refresh()
-            return true
-        } catch KimaiError.unauthorized {
-            handleUnauthorized()
-            return false
-        } catch {
-            return false
         }
     }
 
     /// DELETE a timesheet entry by ID. Refreshes recent + week after success.
     @discardableResult
     func deleteTimesheet(id: Int) async -> Bool {
-        guard let client else { return false }
-        do {
-            try await client.deleteTimesheet(id: id)
-            await refresh()
-            return true
-        } catch KimaiError.unauthorized {
-            handleUnauthorized()
-            return false
-        } catch {
-            return false
-        }
+        await perform { try await $0.deleteTimesheet(id: id) }
     }
 
     /// Duplicate a timesheet entry via Kimai's POST /duplicate endpoint.
     /// Refreshes after success so the new entry appears in the recent list.
     @discardableResult
     func duplicateTimesheet(id: Int) async -> Bool {
-        guard let client else { return false }
-        do {
-            _ = try await client.duplicateTimesheet(id: id)
-            await refresh()
-            return true
-        } catch KimaiError.unauthorized {
-            handleUnauthorized()
-            return false
-        } catch {
-            return false
-        }
+        await perform { _ = try await $0.duplicateTimesheet(id: id) }
     }
 
     /// PATCH the currently running timer. Any nil argument is left unchanged.
@@ -879,22 +843,15 @@ final class TimerStore: ObservableObject {
                            activity: Int? = nil,
                            description: String? = nil,
                            tags: [String]? = nil) async -> Bool {
-        guard let client, let id = active?.id else { return false }
-        do {
-            _ = try await client.updateTimesheet(
+        guard let id = active?.id else { return false }
+        return await perform {
+            _ = try await $0.updateTimesheet(
                 id: id,
                 project: project,
                 activity: activity,
                 begin: begin,
                 description: description,
                 tags: tags)
-            await refresh()
-            return true
-        } catch KimaiError.unauthorized {
-            handleUnauthorized()
-            return false
-        } catch {
-            return false
         }
     }
 
@@ -905,17 +862,7 @@ final class TimerStore: ObservableObject {
     /// `#deep-work · Auth refactor` entry preserves both.
     @discardableResult
     func resumeCheckingResult(timesheetId: Int) async -> Bool {
-        guard let client else { return false }
-        do {
-            _ = try await client.restart(id: timesheetId, copyAll: true)
-            await refresh()
-            return true
-        } catch KimaiError.unauthorized {
-            handleUnauthorized()
-            return false
-        } catch {
-            return false
-        }
+        await perform { _ = try await $0.restart(id: timesheetId, copyAll: true) }
     }
 
     private func refreshWeek() async {
