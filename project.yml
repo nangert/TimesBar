@@ -22,8 +22,8 @@ targets:
       properties:
         LSUIElement: true
         CFBundleName: TimesBar
-        CFBundleShortVersionString: "0.5.0"
-        CFBundleVersion: "5"
+        CFBundleShortVersionString: "0.6.0"
+        CFBundleVersion: "6"
     entitlements:
       path: TimesBar/TimesBar.entitlements
       properties:
