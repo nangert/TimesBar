@@ -9,22 +9,13 @@ struct EditActiveTimerForm: View {
     let onCancel: () -> Void
     let onSaved: () -> Void
 
-    @State private var projectId: Int?
-    @State private var activityId: Int?
-    @State private var description: String = ""
-    @State private var tags: [String] = []
-    @State private var begin: Date = Date()
-    /// Dummy binding for TimeRangeBar's `end` parameter in `.beginOnly` mode.
-    /// Never read — the bar derives the visual end from "now" itself.
-    @State private var dummyEnd: Date = Date()
+    /// `draft.end` doubles as the dummy binding for TimeRangeBar's `end`
+    /// parameter in `.beginOnly` mode — the bar never writes it there, and
+    /// the save path never sends it.
+    @State private var draft = TimesheetDraft()
+    @State private var initial = TimesheetDraft()
     @State private var isSaving = false
     @State private var errorMessage: String?
-
-    @State private var initialProjectId: Int = -1
-    @State private var initialActivityId: Int = -1
-    @State private var initialDescription: String = ""
-    @State private var initialTags: [String] = []
-    @State private var initialBegin: Date = Date()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -40,47 +31,21 @@ struct EditActiveTimerForm: View {
                 .buttonStyle(.plain)
             }
 
-            FormRow(label: "Project") {
-                InlinePicker(
-                    placeholder: "Select project…",
-                    selectionTitle: projectId.flatMap { id in
-                        sortedProjects.first(where: { $0.0 == id })?.1
-                    },
-                    options: sortedProjects,
-                    onPick: { projectId = $0 }
-                )
-            }
-
-            FormRow(label: "Activity") {
-                InlinePicker(
-                    placeholder: "Select activity…",
-                    selectionTitle: activityId.flatMap { id in
-                        sortedActivities.first(where: { $0.0 == id })?.1
-                    },
-                    options: sortedActivities,
-                    onPick: { activityId = $0 }
-                )
-            }
-
-            FormRow(label: "Note") {
-                TextField("Optional", text: $description)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 12))
-                    .pillFieldStyle()
-            }
-
-            FormRow(label: "Tags") {
-                TagsField(tags: $tags, suggestions: store.knownTags)
-            }
+            TimesheetFieldsSection(
+                projectId: $draft.projectId,
+                activityId: $draft.activityId,
+                description: $draft.description,
+                tags: $draft.tags
+            )
 
             Divider()
 
             VStack(alignment: .leading, spacing: 8) {
                 TimeRangeBar(
-                    day: begin,
+                    day: draft.begin,
                     mode: .beginOnly,
-                    begin: $begin,
-                    end: $dummyEnd,
+                    begin: $draft.begin,
+                    end: $draft.end,
                     existingEntries: store.nearbyEntries,
                     excludeEntryId: store.active?.id,
                     colorForProject: { store.projectColor(for: $0) }
@@ -89,7 +54,7 @@ struct EditActiveTimerForm: View {
                 HStack(spacing: 16) {
                     TimeNudgeField(
                         label: "Begin",
-                        date: $begin,
+                        date: $draft.begin,
                         maxDate: Date().addingTimeInterval(-60))
                     Spacer()
                     Text(elapsedString)
@@ -127,7 +92,7 @@ struct EditActiveTimerForm: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear {
             hydrate()
-            Task { await store.refreshNearbyEntries(around: begin) }
+            Task { await store.refreshNearbyEntries(around: draft.begin) }
         }
         .onDisappear {
             store.clearNearbyEntries()
@@ -136,39 +101,21 @@ struct EditActiveTimerForm: View {
 
     private func hydrate() {
         guard let active = store.active else { return }
-        projectId = active.project
-        activityId = active.activity
-        description = active.description ?? ""
-        tags = active.tags
-        begin = active.begin
-        initialProjectId = active.project
-        initialActivityId = active.activity
-        initialDescription = active.description ?? ""
-        initialTags = active.tags
-        initialBegin = active.begin
-    }
-
-    private var sortedProjects: [(Int, String)] {
-        store.projectTitles.map { ($0.key, $0.value) }
-            .sorted { $0.1.localizedCaseInsensitiveCompare($1.1) == .orderedAscending }
-    }
-
-    private var sortedActivities: [(Int, String)] {
-        store.activityTitles.map { ($0.key, $0.value) }
-            .sorted { $0.1.localizedCaseInsensitiveCompare($1.1) == .orderedAscending }
+        draft = TimesheetDraft(entry: active)
+        initial = draft
     }
 
     private var elapsedString: String {
-        let secs = max(0, Int(Date().timeIntervalSince(begin)))
+        let secs = max(0, Int(Date().timeIntervalSince(draft.begin)))
         let h = secs / 3600
         let m = (secs % 3600) / 60
         return String(format: "%dh %02dm elapsed", h, m)
     }
 
     private var hint: String {
-        let beginChanged = abs(begin.timeIntervalSince(initialBegin)) > 1
-        let categoryChanged = projectId != initialProjectId
-            || activityId != initialActivityId
+        let args = draft.patchArgs(from: initial)
+        let beginChanged = args.begin != nil
+        let categoryChanged = args.project != nil || args.activity != nil
         if beginChanged && categoryChanged {
             return "Updates the running entry in place. Elapsed time will recalculate."
         }
@@ -182,36 +129,26 @@ struct EditActiveTimerForm: View {
     }
 
     private var canSave: Bool {
-        guard !isSaving, projectId != nil, activityId != nil else { return false }
-        return projectId != initialProjectId
-            || activityId != initialActivityId
-            || description.trimmingCharacters(in: .whitespacesAndNewlines)
-                != initialDescription.trimmingCharacters(in: .whitespacesAndNewlines)
-            || tags.sorted() != initialTags.sorted()
-            || abs(begin.timeIntervalSince(initialBegin)) > 1
+        guard !isSaving, draft.projectId != nil, draft.activityId != nil else { return false }
+        return draft.differs(from: initial)
     }
 
     private func save() {
-        guard let p = projectId, let a = activityId else { return }
+        guard draft.projectId != nil, draft.activityId != nil else { return }
         isSaving = true
         errorMessage = nil
-        let trimmed = description.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedInitial = initialDescription.trimmingCharacters(in: .whitespacesAndNewlines)
-        let projectArg: Int? = p == initialProjectId ? nil : p
-        let activityArg: Int? = a == initialActivityId ? nil : a
-        let beginArg: Date? = abs(begin.timeIntervalSince(initialBegin)) > 1 ? begin : nil
-        let descArg: String? = trimmed == trimmedInitial ? nil : trimmed
-        // Only send tags when they changed. Pass the (possibly empty) array so
-        // the user can clear tags intentionally.
-        let tagsArg: [String]? = tags.sorted() == initialTags.sorted() ? nil : tags
+        // patchArgs sends tags only when they changed, passing the (possibly
+        // empty) array so the user can clear tags intentionally. `end` is
+        // never sent — updateActiveTimer doesn't accept one.
+        let args = draft.patchArgs(from: initial)
 
         Task {
             let ok = await store.updateActiveTimer(
-                begin: beginArg,
-                project: projectArg,
-                activity: activityArg,
-                description: descArg,
-                tags: tagsArg)
+                begin: args.begin,
+                project: args.project,
+                activity: args.activity,
+                description: args.description,
+                tags: args.tags)
             isSaving = false
             if ok {
                 onSaved()

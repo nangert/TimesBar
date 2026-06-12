@@ -47,38 +47,12 @@ struct StartTimerForm: View {
                 Divider()
             }
 
-            FormRow(label: "Project") {
-                InlinePicker(
-                    placeholder: "Select project…",
-                    selectionTitle: projectId.flatMap { id in
-                        sortedProjects.first(where: { $0.0 == id })?.1
-                    },
-                    options: sortedProjects,
-                    onPick: { projectId = $0 }
-                )
-            }
-
-            FormRow(label: "Activity") {
-                InlinePicker(
-                    placeholder: "Select activity…",
-                    selectionTitle: activityId.flatMap { id in
-                        sortedActivities.first(where: { $0.0 == id })?.1
-                    },
-                    options: sortedActivities,
-                    onPick: { activityId = $0 }
-                )
-            }
-
-            FormRow(label: "Note") {
-                TextField("Optional", text: $description)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 12))
-                    .pillFieldStyle()
-            }
-
-            FormRow(label: "Tags") {
-                TagsField(tags: $tags, suggestions: store.knownTags)
-            }
+            TimesheetFieldsSection(
+                projectId: $projectId,
+                activityId: $activityId,
+                description: $description,
+                tags: $tags
+            )
 
             if isPastEntry {
                 Divider()
@@ -188,16 +162,6 @@ struct StartTimerForm: View {
     }
 
     // MARK: - Computed
-
-    private var sortedProjects: [(Int, String)] {
-        store.projectTitles.map { ($0.key, $0.value) }
-            .sorted { $0.1.localizedCaseInsensitiveCompare($1.1) == .orderedAscending }
-    }
-
-    private var sortedActivities: [(Int, String)] {
-        store.activityTitles.map { ($0.key, $0.value) }
-            .sorted { $0.1.localizedCaseInsensitiveCompare($1.1) == .orderedAscending }
-    }
 
     private var suggestionItems: [QuickStartItem] {
         store.recent

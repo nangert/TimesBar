@@ -118,6 +118,17 @@ final class TimerStore: ObservableObject {
         activityTitles[id] ?? "Activity #\(id)"
     }
 
+    /// Directory entries as (id, title) pairs sorted for the form pickers.
+    var sortedProjects: [(Int, String)] {
+        projectTitles.map { ($0.key, $0.value) }
+            .sorted { $0.1.localizedCaseInsensitiveCompare($1.1) == .orderedAscending }
+    }
+
+    var sortedActivities: [(Int, String)] {
+        activityTitles.map { ($0.key, $0.value) }
+            .sorted { $0.1.localizedCaseInsensitiveCompare($1.1) == .orderedAscending }
+    }
+
     // MARK: - Sleep reconciliation handlers
 
     /// Called when macOS sends willSleepNotification. Snapshots the running
