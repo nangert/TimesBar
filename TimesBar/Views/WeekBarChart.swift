@@ -10,6 +10,7 @@ struct WeekBarChart: View {
     var colorForProject: (Int) -> Color = { id in Color.forProject(id: id, hex: nil) }
 
     private let labels = ["M", "T", "W", "T", "F", "S", "S"]
+    private let dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
 
     var body: some View {
         let maxValue = max(weekHours.max() ?? 0, 0.0001)
@@ -19,11 +20,12 @@ struct WeekBarChart: View {
                     ForEach(Array(weekHours.enumerated()), id: \.offset) { idx, value in
                         let barHeight = max(3, geo.size.height * CGFloat(value / maxValue))
                         let segments = weekProjectHours[safe: idx] ?? []
-                        if segments.isEmpty || idx >= 5 {
-                            // Weekends or no breakdown available: solid fallback color.
+                        if segments.isEmpty {
+                            // No breakdown available: solid fallback color.
                             RoundedRectangle(cornerRadius: 2)
                                 .fill(fallbackColor(for: idx))
                                 .frame(height: barHeight)
+                                .help(tooltip(for: idx, hours: value))
                         } else {
                             // Stacked segments, bottom-to-top (last segment on top visually
                             // because we align .bottom in the HStack).
@@ -40,6 +42,7 @@ struct WeekBarChart: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 2))
                             }
                             .frame(height: barHeight)
+                            .help(tooltip(for: idx, hours: value))
                         }
                     }
                 }
@@ -54,6 +57,12 @@ struct WeekBarChart: View {
                 }
             }
         }
+    }
+
+    private func tooltip(for index: Int, hours: Double) -> String {
+        let day = dayNames[safe: index] ?? ""
+        guard hours > 0 else { return "\(day) · no time logged" }
+        return "\(day) · \(formatHoursAndMinutes(hours))"
     }
 
     private func fallbackColor(for index: Int) -> Color {

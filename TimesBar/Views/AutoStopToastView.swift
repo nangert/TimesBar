@@ -44,8 +44,6 @@ struct AutoStopToastView: View {
     }
 
     private func formatted(_ date: Date) -> String {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "HH:mm"
-        return fmt.string(from: date)
+        timeHMFormatter.string(from: date)
     }
 }

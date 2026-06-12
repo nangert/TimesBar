@@ -226,10 +226,8 @@ struct TimeRangeBar: View {
     }
 
     private func entryTooltip(_ entry: TimesheetEntity) -> String {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm"
-        let begin = f.string(from: entry.begin)
-        let end = entry.end.map(f.string(from:)) ?? "running"
+        let begin = timeHMFormatter.string(from: entry.begin)
+        let end = entry.end.map(timeHMFormatter.string(from:)) ?? "running"
         if let desc = entry.description, !desc.isEmpty {
             return "\(begin) — \(end)  \(desc)"
         }
@@ -493,9 +491,7 @@ struct TimeNudgeField: View {
     }
 
     private var timeString: String {
-        let f = DateFormatter()
-        f.dateFormat = "HH:mm"
-        return f.string(from: date)
+        timeHMFormatter.string(from: date)
     }
 
     private func nudgeButton(systemName: String, delta: TimeInterval) -> some View {

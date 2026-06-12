@@ -9,7 +9,7 @@ private func makeDate(hour: Int, minute: Int = 0, daysOffset: Int = 0) -> Date {
     var cal = Calendar(identifier: .gregorian)
     cal.timeZone = .current
     // Use a fixed date so tests are deterministic
-    var comps = DateComponents(year: 2024, month: 1, day: 15 + daysOffset,
+    let comps = DateComponents(year: 2024, month: 1, day: 15 + daysOffset,
                                 hour: hour, minute: minute, second: 0)
     return cal.date(from: comps)!
 }

@@ -41,6 +41,8 @@ struct ActiveTimerSection: View {
                 Text(elapsed)
                     .font(.system(size: 22, weight: .medium, design: .monospaced))
                     .tracking(1)
+                    .contentTransition(.numericText())
+                    .animation(.linear(duration: 0.2), value: elapsed)
                 Spacer()
                 Button(action: onStop) {
                     Label("Stop", systemImage: "stop.fill")
