@@ -23,17 +23,7 @@ struct TimeOffView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                SectionHeader(text: "Time off")
-                Spacer()
-                Button(action: onClose) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .padding(2)
-                }
-                .buttonStyle(.plain)
-            }
+            PanelHeader(title: "Time off", onClose: onClose)
 
             vacationCard
             Divider()
@@ -343,12 +333,16 @@ struct TimeOffView: View {
         }
     }
 
+    private static let contractDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "d MMM yyyy"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+
     private var detectedFootnote: String {
         if let start = store.contractStartDate {
-            let f = DateFormatter()
-            f.dateFormat = "d MMM yyyy"
-            f.locale = Locale(identifier: "en_US_POSIX")
-            return "Contract started \(f.string(from: start)) (from your Kimai profile)."
+            return "Contract started \(Self.contractDateFormatter.string(from: start)) (from your Kimai profile)."
         }
         if let detected = store.detectedFirstTimesheetYear {
             return "Counting from \(detected), your earliest timesheet."
@@ -365,10 +359,14 @@ struct TimeOffView: View {
             : String(format: "%.1f", rounded)
     }
 
-    private func formatDate(_ date: Date) -> String {
+    private static let absenceDateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "dd.MM.yyyy"
-        return f.string(from: date)
+        return f
+    }()
+
+    private func formatDate(_ date: Date) -> String {
+        Self.absenceDateFormatter.string(from: date)
     }
 
     private func typeLabel(_ type: String) -> String {

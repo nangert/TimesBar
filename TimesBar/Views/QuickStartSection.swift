@@ -83,7 +83,7 @@ private struct QuickStartRow: View {
                         .font(.system(size: 13))
                         .lineLimit(1)
                     if !item.tags.isEmpty {
-                        tagRow
+                        TagChipsRow(tags: item.tags)
                     }
                 }
                 Spacer(minLength: 8)
@@ -129,24 +129,4 @@ private struct QuickStartRow: View {
         }
     }
 
-    private var tagRow: some View {
-        let visible = Array(item.tags.prefix(3))
-        let overflow = item.tags.count - visible.count
-        return HStack(spacing: 3) {
-            ForEach(visible, id: \.self) { tag in
-                Text(tag)
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
-                    .padding(.vertical, 1)
-                    .padding(.horizontal, 4)
-                    .background(Capsule().fill(Color.primary.opacity(0.07)))
-                    .lineLimit(1)
-            }
-            if overflow > 0 {
-                Text("+\(overflow)")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
 }

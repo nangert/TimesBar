@@ -24,13 +24,7 @@ struct MonthlyBalanceView: View {
             SectionHeader(text: "Monthly balance")
             Spacer()
             yearStepper
-            Button(action: onClose) {
-                Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(.secondary)
-                    .padding(2)
-            }
-            .buttonStyle(.plain)
+            CloseButton(action: onClose)
         }
     }
 
@@ -197,10 +191,14 @@ struct MonthlyBalanceView: View {
 
     // MARK: - Helpers
 
-    private func monthName(_ month: Int) -> String {
+    private static let monthSymbols: [String] = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
-        return f.shortMonthSymbols[month - 1]
+        return f.shortMonthSymbols
+    }()
+
+    private func monthName(_ month: Int) -> String {
+        Self.monthSymbols[month - 1]
     }
 
     private func formatH(_ hours: Double) -> String {

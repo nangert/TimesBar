@@ -9,28 +9,11 @@ struct IdlePromptSheet: View {
             SectionHeader(text: "You've been idle for \(idleDurationString)")
 
             VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 6) {
-                    Circle()
-                        .fill(store.projectColor(for: prompt.project))
-                        .frame(width: 7, height: 7)
-                    Text(store.projectTitle(for: prompt.project))
-                        .font(.system(size: 12, weight: .medium))
-                        .lineLimit(1)
-                    Text("·")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                    Text(store.activityTitle(for: prompt.activity))
-                        .font(.system(size: 12))
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
-                if let desc = prompt.description, !desc.isEmpty {
-                    Text("\u{201C}\(desc)\u{201D}")
-                        .font(.system(size: 11))
-                        .italic()
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+                TimesheetContextSummary(
+                    projectTitle: store.projectTitle(for: prompt.project),
+                    projectColor: store.projectColor(for: prompt.project),
+                    activityTitle: store.activityTitle(for: prompt.activity),
+                    description: prompt.description)
                 Text("Idle since \(formatted(prompt.idleStart))")
                     .font(.system(size: 11))
                     .foregroundStyle(.secondary)
@@ -51,14 +34,7 @@ struct IdlePromptSheet: View {
             }
         }
         .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.secondary.opacity(0.08))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color.secondary.opacity(0.15), lineWidth: 1)
-        )
+        .promptCardStyle()
     }
 
     private var idleDurationString: String {

@@ -17,17 +17,7 @@ struct EditTimesheetForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                SectionHeader(text: "Edit entry")
-                Spacer()
-                Button(action: onCancel) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .padding(2)
-                }
-                .buttonStyle(.plain)
-            }
+            PanelHeader(title: "Edit entry", onClose: onCancel)
 
             TimesheetFieldsSection(
                 projectId: $draft.projectId,

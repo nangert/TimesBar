@@ -144,6 +144,35 @@ private struct TagSuggestionRow: View {
     }
 }
 
+// MARK: - TagChipsRow
+
+/// Up to three read-only tag pills + a "+n" overflow readout — shared by the
+/// quick-start and suggestion rows.
+struct TagChipsRow: View {
+    let tags: [String]
+
+    var body: some View {
+        let visible = Array(tags.prefix(3))
+        let overflow = tags.count - visible.count
+        HStack(spacing: 3) {
+            ForEach(visible, id: \.self) { tag in
+                Text(tag)
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 1)
+                    .padding(.horizontal, 4)
+                    .background(Capsule().fill(Color.primary.opacity(0.07)))
+                    .lineLimit(1)
+            }
+            if overflow > 0 {
+                Text("+\(overflow)")
+                    .font(.system(size: 10))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
 // MARK: - TagChip
 
 /// A single removable tag pill.
