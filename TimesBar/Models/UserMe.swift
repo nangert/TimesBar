@@ -36,14 +36,20 @@ struct UserMe: Decodable, Equatable, Sendable {
         return Int(raw)
     }
 
-    /// Contract start date (e.g. "2024-07-01"). Used to prorate the first
-    /// year's vacation budget and to compute multi-year balances.
-    var workStartDate: Date? {
-        guard let raw = preference("work_start_day") else { return nil }
+    /// Built once — this property is hit repeatedly per render through the
+    /// vacation-breakdown chains, and DateFormatter construction is costly.
+    private static let workStartFormatter: DateFormatter = {
         let f = DateFormatter()
         f.dateFormat = "yyyy-MM-dd"
         f.locale = Locale(identifier: "en_US_POSIX")
         f.timeZone = .current
-        return f.date(from: raw)
+        return f
+    }()
+
+    /// Contract start date (e.g. "2024-07-01"). Used to prorate the first
+    /// year's vacation budget and to compute multi-year balances.
+    var workStartDate: Date? {
+        guard let raw = preference("work_start_day") else { return nil }
+        return Self.workStartFormatter.date(from: raw)
     }
 }

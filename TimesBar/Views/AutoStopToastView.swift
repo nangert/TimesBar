@@ -33,14 +33,7 @@ struct AutoStopToastView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 7)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(Color.secondary.opacity(0.08))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .stroke(Color.secondary.opacity(0.15), lineWidth: 1)
-        )
+        .promptCardStyle()
     }
 
     private func formatted(_ date: Date) -> String {

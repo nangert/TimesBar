@@ -101,97 +101,8 @@ final class TimerStore: ObservableObject {
     /// `detectFirstTimesheetYear()` on bootstrap. Drives `vacationTrackingStartYear`.
     @Published var detectedFirstTimesheetYear: Int?
 
-    /// Annual vacation budget — sourced from `/api/users/me` → preference
-    /// `holidays`. Falls back to 25 if not loaded yet.
-    var vacationBudgetDays: Int { userMe?.holidaysPerYear ?? 25 }
-
-    /// Contract start date from /api/users/me. Drives the per-year accrual
-    /// math; the first year is prorated by months remaining.
-    var contractStartDate: Date? { userMe?.workStartDate }
-
-    /// One year's vacation summary, supporting half-day weights.
-    struct VacationYearStats: Equatable {
-        let year: Int
-        let available: Double
-        let used: Double
-        var remaining: Double { max(available - used, 0) }
-    }
-
-    /// First year we count toward the running balance. Prefers the contract
-    /// start year from /api/users/me; falls back to the earliest timesheet
-    /// year if the contract preference is missing.
-    var vacationTrackingStartYear: Int {
-        if let date = contractStartDate {
-            return Calendar.current.component(.year, from: date)
-        }
-        return detectedFirstTimesheetYear ?? Calendar.current.component(.year, from: Date())
-    }
-
-    /// Years to display in the breakdown — from the contract start year (or
-    /// detected first-timesheet year as fallback) through the current year.
-    var vacationYears: [Int] {
-        let nowYear = Calendar.current.component(.year, from: Date())
-        let start = min(vacationTrackingStartYear, nowYear)
-        return Array(start...nowYear)
-    }
-
-    /// Number of calendar years between the tracking start and today.
-    var vacationYearsAccrued: Int { max(vacationYears.count, 1) }
-
-    /// Per-year stats: prorated `available` budget + `used` approved
-    /// holidays (half-day-weighted) for the given calendar year.
-    func vacationStats(for year: Int) -> VacationYearStats {
-        let cal = Calendar.current
-        let annual = Double(vacationBudgetDays)
-        var available: Double = annual
-
-        if let start = contractStartDate {
-            let startYear = cal.component(.year, from: start)
-            if year < startYear {
-                available = 0
-            } else if year == startYear {
-                // Prorate by months remaining (inclusive of the start month).
-                // July (month=7) → 13 − 7 = 6 → 6/12 × 25 = 12.5.
-                let startMonth = cal.component(.month, from: start)
-                let monthsRemaining = Double(max(13 - startMonth, 0))
-                available = annual * monthsRemaining / 12.0
-            }
-        }
-
-        let used = absences
-            .filter { $0.type.lowercased() == "holiday"
-                && cal.component(.year, from: $0.date) == year }
-            .reduce(0.0) { $0 + $1.dayWeight }
-
-        return VacationYearStats(year: year, available: available, used: used)
-    }
-
-    /// Stats for every tracked year, ascending.
-    var vacationBreakdown: [VacationYearStats] {
-        vacationYears.map { vacationStats(for: $0) }
-    }
-
-    /// Total available across every tracked year (prorated first year).
-    var vacationTotalAvailable: Double {
-        vacationBreakdown.reduce(0.0) { $0 + $1.available }
-    }
-
-    /// Total approved holiday days used across every tracked year.
-    var vacationUsedDays: Double {
-        vacationBreakdown.reduce(0.0) { $0 + $1.used }
-    }
-
-    var vacationRemainingDays: Double {
-        max(vacationTotalAvailable - vacationUsedDays, 0)
-    }
-
-    /// Upcoming approved absences from today forward, sorted ascending.
-    var upcomingAbsences: [Absence] {
-        let today = Calendar.current.startOfDay(for: Date())
-        return absences
-            .filter { $0.date >= today }
-            .sorted { $0.date < $1.date }
-    }
+    // Vacation accounting (budget, per-year stats, upcoming absences) lives
+    // in TimerStore+Vacation.swift.
 
     var isRunning: Bool { active != nil }
 
@@ -205,6 +116,17 @@ final class TimerStore: ObservableObject {
 
     func activityTitle(for id: Int) -> String {
         activityTitles[id] ?? "Activity #\(id)"
+    }
+
+    /// Directory entries as (id, title) pairs sorted for the form pickers.
+    var sortedProjects: [(Int, String)] {
+        projectTitles.map { ($0.key, $0.value) }
+            .sorted { $0.1.localizedCaseInsensitiveCompare($1.1) == .orderedAscending }
+    }
+
+    var sortedActivities: [(Int, String)] {
+        activityTitles.map { ($0.key, $0.value) }
+            .sorted { $0.1.localizedCaseInsensitiveCompare($1.1) == .orderedAscending }
     }
 
     // MARK: - Sleep reconciliation handlers
@@ -498,6 +420,30 @@ final class TimerStore: ObservableObject {
         }
     }
 
+    /// Run a mutating client call and `refresh()` on success — or the supplied
+    /// alternative refresh, for mutations whose effects live outside the main
+    /// timesheet state (absences). Returns false when no client is configured,
+    /// when Kimai rejects the call, or on any transport error; 401/403
+    /// additionally tears down the auth state via `handleUnauthorized()`.
+    private func perform(_ op: (KimaiClient) async throws -> Void,
+                         thenRefresh after: (() async -> Void)? = nil) async -> Bool {
+        guard let client else { return false }
+        do {
+            try await op(client)
+            if let after {
+                await after()
+            } else {
+                await refresh()
+            }
+            return true
+        } catch KimaiError.unauthorized {
+            handleUnauthorized()
+            return false
+        } catch {
+            return false
+        }
+    }
+
     /// Tear down all ephemeral state shared by `signOut()` and
     /// `handleUnauthorized()`: timers, hotkey, idle monitor, and any pending
     /// UI prompts that reference in-flight Kimai operations.
@@ -515,13 +461,11 @@ final class TimerStore: ObservableObject {
         autoStopToast = nil
     }
 
-    /// Tear down live state when Kimai stops accepting the token. Mirrors
-    /// `signOut()` but keeps the Keychain entry — the user may want to paste
-    /// a fresh token and continue, and we don't know if the old one is just
-    /// temporarily revoked vs. permanently gone.
-    private func handleUnauthorized() {
-        guard isAuthenticated else { return }
-        NSLog("TimesBar: Kimai rejected the token (401/403); returning to sign-in")
+    /// Shared "the session is over" teardown: stop timers/monitors, drop
+    /// pending prompts, and clear the live per-session state. Cache-ish data
+    /// (directory titles, userMe, absences, tags) is left to the callers —
+    /// sign-out wipes it, a 401 keeps it for a quick re-auth.
+    private func resetLiveSessionState() {
         teardownEphemeralState()
         client = nil
         active = nil
@@ -531,6 +475,16 @@ final class TimerStore: ObservableObject {
         recent = []
         loadingYear = nil
         isAuthenticated = false
+    }
+
+    /// Tear down live state when Kimai stops accepting the token. Mirrors
+    /// `signOut()` but keeps the Keychain entry — the user may want to paste
+    /// a fresh token and continue, and we don't know if the old one is just
+    /// temporarily revoked vs. permanently gone.
+    private func handleUnauthorized() {
+        guard isAuthenticated else { return }
+        NSLog("TimesBar: Kimai rejected the token (401/403); returning to sign-in")
+        resetLiveSessionState()
     }
 
     func authenticate(with token: String) async -> Bool {
@@ -610,40 +564,24 @@ final class TimerStore: ObservableObject {
                         type: String,
                         halfDay: Bool,
                         comment: String?) async -> Bool {
-        guard let client, let userId = userMe?.id else { return false }
-        do {
-            _ = try await client.createAbsence(
+        guard let userId = userMe?.id else { return false }
+        return await perform({
+            _ = try await $0.createAbsence(
                 user: userId,
                 date: date,
                 end: end,
                 type: type,
                 halfDay: halfDay,
                 comment: comment)
-            await refreshAbsences()
-            return true
-        } catch KimaiError.unauthorized {
-            handleUnauthorized()
-            return false
-        } catch {
-            return false
-        }
+        }, thenRefresh: { await self.refreshAbsences() })
     }
 
     /// Cancel an absence by ID. Refreshes the absence list on success so the
     /// row disappears from the Upcoming list without a manual reload.
     @discardableResult
     func cancelAbsence(id: Int) async -> Bool {
-        guard let client else { return false }
-        do {
-            try await client.deleteAbsence(id: id)
-            await refreshAbsences()
-            return true
-        } catch KimaiError.unauthorized {
-            handleUnauthorized()
-            return false
-        } catch {
-            return false
-        }
+        await perform({ try await $0.deleteAbsence(id: id) },
+                      thenRefresh: { await self.refreshAbsences() })
     }
 
     /// Fetch approved absences from the tracking start year through the end
@@ -664,21 +602,13 @@ final class TimerStore: ObservableObject {
 
     func signOut() {
         TokenStore().delete()
-        teardownEphemeralState()
-        client = nil
-        active = nil
-        weekHours = Array(repeating: 0, count: 7)
-        weekProjectHours = Array(repeating: [], count: 7)
-        elapsedString = "--:--:--"
-        isAuthenticated = false
-        recent = []
+        resetLiveSessionState()
         projectTitles = [:]
         projectColors = [:]
         activityTitles = [:]
         absences = []
         knownTags = []
         yearlyData = nil
-        loadingYear = nil
         detectedFirstTimesheetYear = nil
         userMe = nil
     }
@@ -763,16 +693,8 @@ final class TimerStore: ObservableObject {
 
     @discardableResult
     func startCheckingResult(project: Int, activity: Int, description: String?, tags: [String]? = nil) async -> Bool {
-        guard let client else { return false }
-        do {
-            _ = try await client.start(project: project, activity: activity, description: description, tags: tags)
-            await refresh()
-            return true
-        } catch KimaiError.unauthorized {
-            handleUnauthorized()
-            return false
-        } catch {
-            return false
+        await perform {
+            _ = try await $0.start(project: project, activity: activity, description: description, tags: tags)
         }
     }
 
@@ -788,22 +710,14 @@ final class TimerStore: ObservableObject {
                   end: Date?,
                   description: String?,
                   tags: [String]? = nil) async -> Bool {
-        guard let client else { return false }
-        do {
-            _ = try await client.createTimesheet(
+        await perform {
+            _ = try await $0.createTimesheet(
                 begin: begin,
                 end: end,
                 project: project,
                 activity: activity,
                 description: description,
                 tags: tags)
-            await refresh()
-            return true
-        } catch KimaiError.unauthorized {
-            handleUnauthorized()
-            return false
-        } catch {
-            return false
         }
     }
 
@@ -817,9 +731,8 @@ final class TimerStore: ObservableObject {
                          end: Date? = nil,
                          description: String? = nil,
                          tags: [String]? = nil) async -> Bool {
-        guard let client else { return false }
-        do {
-            _ = try await client.updateTimesheet(
+        await perform {
+            _ = try await $0.updateTimesheet(
                 id: id,
                 project: project,
                 activity: activity,
@@ -827,47 +740,20 @@ final class TimerStore: ObservableObject {
                 end: end,
                 description: description,
                 tags: tags)
-            await refresh()
-            return true
-        } catch KimaiError.unauthorized {
-            handleUnauthorized()
-            return false
-        } catch {
-            return false
         }
     }
 
     /// DELETE a timesheet entry by ID. Refreshes recent + week after success.
     @discardableResult
     func deleteTimesheet(id: Int) async -> Bool {
-        guard let client else { return false }
-        do {
-            try await client.deleteTimesheet(id: id)
-            await refresh()
-            return true
-        } catch KimaiError.unauthorized {
-            handleUnauthorized()
-            return false
-        } catch {
-            return false
-        }
+        await perform { try await $0.deleteTimesheet(id: id) }
     }
 
     /// Duplicate a timesheet entry via Kimai's POST /duplicate endpoint.
     /// Refreshes after success so the new entry appears in the recent list.
     @discardableResult
     func duplicateTimesheet(id: Int) async -> Bool {
-        guard let client else { return false }
-        do {
-            _ = try await client.duplicateTimesheet(id: id)
-            await refresh()
-            return true
-        } catch KimaiError.unauthorized {
-            handleUnauthorized()
-            return false
-        } catch {
-            return false
-        }
+        await perform { _ = try await $0.duplicateTimesheet(id: id) }
     }
 
     /// PATCH the currently running timer. Any nil argument is left unchanged.
@@ -879,22 +765,15 @@ final class TimerStore: ObservableObject {
                            activity: Int? = nil,
                            description: String? = nil,
                            tags: [String]? = nil) async -> Bool {
-        guard let client, let id = active?.id else { return false }
-        do {
-            _ = try await client.updateTimesheet(
+        guard let id = active?.id else { return false }
+        return await perform {
+            _ = try await $0.updateTimesheet(
                 id: id,
                 project: project,
                 activity: activity,
                 begin: begin,
                 description: description,
                 tags: tags)
-            await refresh()
-            return true
-        } catch KimaiError.unauthorized {
-            handleUnauthorized()
-            return false
-        } catch {
-            return false
         }
     }
 
@@ -905,17 +784,7 @@ final class TimerStore: ObservableObject {
     /// `#deep-work · Auth refactor` entry preserves both.
     @discardableResult
     func resumeCheckingResult(timesheetId: Int) async -> Bool {
-        guard let client else { return false }
-        do {
-            _ = try await client.restart(id: timesheetId, copyAll: true)
-            await refresh()
-            return true
-        } catch KimaiError.unauthorized {
-            handleUnauthorized()
-            return false
-        } catch {
-            return false
-        }
+        await perform { _ = try await $0.restart(id: timesheetId, copyAll: true) }
     }
 
     private func refreshWeek() async {

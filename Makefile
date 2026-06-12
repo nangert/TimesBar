@@ -67,9 +67,10 @@ test: project  ## Run the unit-test suite
 		-destination 'platform=macOS' \
 		test
 
-project: $(APP_NAME).xcodeproj/project.pbxproj  ## Generate the Xcode project via xcodegen
-
-$(APP_NAME).xcodeproj/project.pbxproj: project.yml
+# Always regenerate: a file-based rule keyed on project.yml misses added or
+# removed source files, leaving a stale .xcodeproj and "cannot find X in
+# scope" build errors. xcodegen takes well under a second here.
+project:  ## Regenerate the Xcode project via xcodegen
 	@command -v xcodegen >/dev/null || { echo "xcodegen is not installed. Run: brew install xcodegen"; exit 1; }
 	xcodegen generate
 

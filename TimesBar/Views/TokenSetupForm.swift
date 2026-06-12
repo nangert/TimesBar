@@ -15,19 +15,8 @@ struct TokenSetupForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                SectionHeader(text: store.isAuthenticated ? "Settings" : "Sign in")
-                Spacer()
-                if let onCancel {
-                    Button(action: onCancel) {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(.secondary)
-                            .padding(2)
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
+            PanelHeader(title: store.isAuthenticated ? "Settings" : "Sign in",
+                        onClose: onCancel)
 
             Text(store.isAuthenticated
                  ? "Replace the saved Kimai API token, or sign out."

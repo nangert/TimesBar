@@ -22,17 +22,8 @@ struct StartTimerForm: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                SectionHeader(text: isPastEntry ? "Log entry" : "New timer")
-                Spacer()
-                Button(action: onCancel) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .padding(2)
-                }
-                .buttonStyle(.plain)
-            }
+            PanelHeader(title: isPastEntry ? "Log entry" : "New timer",
+                        onClose: onCancel)
 
             Toggle(isOn: $isPastEntry.animation(.easeInOut(duration: 0.15))) {
                 Text("Log past entry")
@@ -47,38 +38,12 @@ struct StartTimerForm: View {
                 Divider()
             }
 
-            FormRow(label: "Project") {
-                InlinePicker(
-                    placeholder: "Select project…",
-                    selectionTitle: projectId.flatMap { id in
-                        sortedProjects.first(where: { $0.0 == id })?.1
-                    },
-                    options: sortedProjects,
-                    onPick: { projectId = $0 }
-                )
-            }
-
-            FormRow(label: "Activity") {
-                InlinePicker(
-                    placeholder: "Select activity…",
-                    selectionTitle: activityId.flatMap { id in
-                        sortedActivities.first(where: { $0.0 == id })?.1
-                    },
-                    options: sortedActivities,
-                    onPick: { activityId = $0 }
-                )
-            }
-
-            FormRow(label: "Note") {
-                TextField("Optional", text: $description)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 12))
-                    .pillFieldStyle()
-            }
-
-            FormRow(label: "Tags") {
-                TagsField(tags: $tags, suggestions: store.knownTags)
-            }
+            TimesheetFieldsSection(
+                projectId: $projectId,
+                activityId: $activityId,
+                description: $description,
+                tags: $tags
+            )
 
             if isPastEntry {
                 Divider()
@@ -188,16 +153,6 @@ struct StartTimerForm: View {
     }
 
     // MARK: - Computed
-
-    private var sortedProjects: [(Int, String)] {
-        store.projectTitles.map { ($0.key, $0.value) }
-            .sorted { $0.1.localizedCaseInsensitiveCompare($1.1) == .orderedAscending }
-    }
-
-    private var sortedActivities: [(Int, String)] {
-        store.activityTitles.map { ($0.key, $0.value) }
-            .sorted { $0.1.localizedCaseInsensitiveCompare($1.1) == .orderedAscending }
-    }
 
     private var suggestionItems: [QuickStartItem] {
         store.recent
@@ -341,7 +296,7 @@ private struct SuggestionRow: View {
                             .lineLimit(1)
                     }
                     if !item.tags.isEmpty {
-                        tagRow
+                        TagChipsRow(tags: item.tags)
                     }
                 }
                 Spacer(minLength: 8)
@@ -360,26 +315,5 @@ private struct SuggestionRow: View {
         }
         .buttonStyle(.plain)
         .onHover { hover = $0 }
-    }
-
-    private var tagRow: some View {
-        let visible = Array(item.tags.prefix(3))
-        let overflow = item.tags.count - visible.count
-        return HStack(spacing: 3) {
-            ForEach(visible, id: \.self) { tag in
-                Text(tag)
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
-                    .padding(.vertical, 1)
-                    .padding(.horizontal, 4)
-                    .background(Capsule().fill(Color.primary.opacity(0.07)))
-                    .lineLimit(1)
-            }
-            if overflow > 0 {
-                Text("+\(overflow)")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.secondary)
-            }
-        }
     }
 }
