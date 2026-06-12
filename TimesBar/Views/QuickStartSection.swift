@@ -87,6 +87,12 @@ private struct QuickStartRow: View {
                     }
                 }
                 Spacer(minLength: 8)
+                if hover {
+                    Image(systemName: "play.fill")
+                        .font(.system(size: 9))
+                        .foregroundStyle(Color.kimaiGreen)
+                        .transition(.opacity)
+                }
                 Text(formatHoursAndMinutes(seconds: item.durationSeconds))
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundStyle(.secondary)
@@ -101,7 +107,10 @@ private struct QuickStartRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .onHover { hover = $0 }
+        .help("Restart this entry")
+        .onHover { hovering in
+            withAnimation(.easeInOut(duration: 0.12)) { hover = hovering }
+        }
         .contextMenu {
             Button("Edit…") { onEdit() }
             Button("Duplicate") { onDuplicate() }

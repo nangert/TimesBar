@@ -67,16 +67,7 @@ struct TimeOffView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.secondary.opacity(0.18))
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.kimaiGreen)
-                        .frame(width: geo.size.width * CGFloat(progress))
-                }
-            }
-            .frame(height: 4)
+            ThinProgressBar(progress: progress)
             Text("\(formatDays(store.vacationRemainingDays)) days remaining")
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)

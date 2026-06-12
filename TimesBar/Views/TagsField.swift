@@ -74,20 +74,7 @@ struct TagsField: View {
     private var dropdownList: some View {
         VStack(alignment: .leading, spacing: 0) {
             ForEach(filteredSuggestions, id: \.self) { tag in
-                Button(action: { pickSuggestion(tag) }) {
-                    Text(tag)
-                        .font(.system(size: 12))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, 4)
-                        .padding(.horizontal, 8)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .background(Color.clear)
-                .onHover { hovering in
-                    // highlight is handled by the button's default hover
-                    _ = hovering
-                }
+                TagSuggestionRow(tag: tag) { pickSuggestion(tag) }
             }
         }
         .background(
@@ -120,11 +107,6 @@ struct TagsField: View {
         showDropdown = false
     }
 
-    private func addTag(_ raw: String) {
-        let newTags = normalizeTags(raw, existing: tags)
-        tags.append(contentsOf: newTags)
-    }
-
     private func removeTag(_ tag: String) {
         tags.removeAll { $0 == tag }
     }
@@ -135,6 +117,30 @@ struct TagsField: View {
         input = ""
         showDropdown = false
         inputFocused = true
+    }
+}
+
+// MARK: - TagSuggestionRow
+
+/// One row of the suggestions dropdown, with its own hover highlight.
+private struct TagSuggestionRow: View {
+    let tag: String
+    let onPick: () -> Void
+
+    @State private var hover = false
+
+    var body: some View {
+        Button(action: onPick) {
+            Text(tag)
+                .font(.system(size: 12))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, 4)
+                .padding(.horizontal, 8)
+                .background(Color.primary.opacity(hover ? 0.08 : 0))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hover = $0 }
     }
 }
 
@@ -193,7 +199,6 @@ private struct FlowLayout: Layout {
     }
 
     func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        let maxWidth = bounds.width
         var x: CGFloat = bounds.minX
         var y: CGFloat = bounds.minY
         var rowHeight: CGFloat = 0
@@ -207,7 +212,6 @@ private struct FlowLayout: Layout {
             subview.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
             x += size.width + spacing
             rowHeight = max(rowHeight, size.height)
-            _ = maxWidth // suppress warning
         }
     }
 }

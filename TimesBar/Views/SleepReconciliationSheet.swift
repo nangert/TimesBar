@@ -68,16 +68,10 @@ struct SleepReconciliationSheet: View {
     }
 
     private var sleepDurationString: String {
-        let seconds = Int(reconciliation.wakeAt.timeIntervalSince(reconciliation.sleepStart))
-        let h = seconds / 3600
-        let m = (seconds % 3600) / 60
-        if h > 0 { return "\(h)h \(m)m" }
-        return "\(m)m"
+        formatHoursAndMinutes(seconds: reconciliation.wakeAt.timeIntervalSince(reconciliation.sleepStart))
     }
 
     private func formatted(_ date: Date) -> String {
-        let fmt = DateFormatter()
-        fmt.dateFormat = "HH:mm"
-        return fmt.string(from: date)
+        timeHMFormatter.string(from: date)
     }
 }

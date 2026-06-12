@@ -65,6 +65,15 @@ extension Color {
     }
 }
 
+/// Shared `HH:mm` formatter — used by tooltips, prompt sheets, and the time
+/// nudge fields, all of which previously built a fresh DateFormatter per call
+/// inside render paths. Built once and never mutated afterwards.
+let timeHMFormatter: DateFormatter = {
+    let f = DateFormatter()
+    f.dateFormat = "HH:mm"
+    return f
+}()
+
 func formatHoursAndMinutes(_ hours: Double) -> String {
     let total = max(0, Int(hours * 3600))
     let h = total / 3600

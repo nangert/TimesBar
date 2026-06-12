@@ -22,17 +22,8 @@ struct TodayProgressView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            GeometryReader { geo in
-                let progress = min(max(hoursToday / targetHours, 0), 1)
-                ZStack(alignment: .leading) {
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.secondary.opacity(0.18))
-                    RoundedRectangle(cornerRadius: 2)
-                        .fill(Color.kimaiGreen)
-                        .frame(width: geo.size.width * CGFloat(progress))
-                }
-            }
-            .frame(height: 4)
+            ThinProgressBar(progress: hoursToday / targetHours,
+                            showsOverState: true)
         }
     }
 }

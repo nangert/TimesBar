@@ -2,6 +2,7 @@ import SwiftUI
 
 struct TokenSetupForm: View {
     @EnvironmentObject var store: TimerStore
+    @ObservedObject private var prefs = UserPreferences.shared
     /// `nil` when the user is not yet authenticated — there's nothing to cancel back to.
     let onCancel: (() -> Void)?
     let onSaved: () -> Void
@@ -30,7 +31,7 @@ struct TokenSetupForm: View {
 
             Text(store.isAuthenticated
                  ? "Replace the saved Kimai API token, or sign out."
-                 : "Paste a Kimai API token from Settings → API access at times.lipsum.services.")
+                 : "Paste a Kimai API token from Settings → API access at \(prefs.baseURL.host ?? "your Kimai instance").")
                 .font(.system(size: 11))
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
